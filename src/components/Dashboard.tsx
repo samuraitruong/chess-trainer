@@ -11,11 +11,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showReview, setShowReview] = useState(false);
   const [selectedGame, setSelectedGame] = useState<GameRecord | null>(null);
-  console.log('Dashboard rendered with playerStats:', playerStats);
-  console.log('Total games:', playerStats?.total_games);
-  console.log('Wins:', playerStats?.wins);
-  console.log('Losses:', playerStats?.losses);
-  console.log('Draws:', playerStats?.draws);
 
   useEffect(() => {
     const loadGames = async () => {
