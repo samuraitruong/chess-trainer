@@ -33,6 +33,9 @@ Performance:
 Accessibility:
 - Buttons/controls need aria-labels when icon-only
 
+UI Interactions:
+- Do not use alert/prompt/confirm for UX. Use styled modals/popovers within the app.
+
 Title: General Engineering Rules (MDC)
 
 Scope:

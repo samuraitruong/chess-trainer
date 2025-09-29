@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { IoInformationCircleOutline } from 'react-icons/io5';
+import { LEVELS } from '@/utils/levelConfig';
 import { useDatabase } from '@/contexts/DatabaseContext';
 
 interface GameControlsProps {
@@ -10,6 +12,7 @@ interface GameControlsProps {
 export default function GameControls({ onShowMoveIndicatorsChange }: GameControlsProps) {
   const { gameState, playerStats, resetGame, startNewGame } = useDatabase();
   const [showMoveIndicators, setShowMoveIndicators] = React.useState(true);
+  const [showLevelModal, setShowLevelModal] = React.useState(false);
 
   const handleShowMoveIndicatorsChange = (show: boolean) => {
     setShowMoveIndicators(show);
@@ -49,7 +52,17 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
 
         {/* AI Difficulty - Read Only */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800">AI Difficulty</h3>
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <span>AI Difficulty</span>
+            <button
+              type="button"
+              className="text-gray-500 hover:text-blue-600"
+              aria-label="Show level profiles"
+              onClick={() => setShowLevelModal(true)}
+            >
+              <IoInformationCircleOutline />
+            </button>
+          </h3>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               Current Elo: {playerStats?.current_elo || 0}
@@ -127,6 +140,55 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
           </div>
         </div>
       </div>
+      {showLevelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowLevelModal(false)} />
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">Level Profiles</h3>
+              <button
+                type="button"
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Close"
+                onClick={() => setShowLevelModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            {(() => {
+              const elo = playerStats?.current_elo || 50;
+              const minElo = 50, maxElo = 2000;
+              const fraction = Math.max(0, Math.min(1, (elo - minElo) / (maxElo - minElo)));
+              const currentLevel = 1 + Math.floor(fraction * 19);
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {LEVELS.map(lp => (
+                    <div
+                      key={lp.level}
+                      className={`p-2 rounded border text-xs font-semibold ${lp.level <= currentLevel ? 'opacity-100 border-green-200 bg-green-50 text-green-800' : 'opacity-50 border-gray-200 bg-gray-50 text-gray-600'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>Lv {lp.level}</span>
+                        <span>{lp.animalName}</span>
+                      </div>
+                      <div className="mt-1 text-[10px] text-gray-500">{lp.description}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            <div className="mt-3 text-right">
+              <button
+                type="button"
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
+                onClick={() => setShowLevelModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

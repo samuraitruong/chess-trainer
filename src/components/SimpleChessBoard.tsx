@@ -6,6 +6,7 @@ import { Chess } from 'chess.js';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useStockfish } from '@/hooks/useStockfish';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
+import MaterialTracker from '@/components/MaterialTracker';
 
 interface SimpleChessBoardProps {
   showMoveIndicators?: boolean;
@@ -267,17 +268,11 @@ export default function SimpleChessBoard({ showMoveIndicators = true }: SimpleCh
   return (
     <div className="w-full max-w-2xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg p-4">
-        <div className="mb-4 text-center">
-          <p className="text-sm text-gray-600">
-            {gameState.isPlayerTurn ? 'Your turn' : 'AI turn'}
-          </p>
-          <p className={`text-xs text-gray-500 mt-1 transition-opacity duration-200 ${
-            gameState.isPlayerTurn ? 'opacity-100' : 'opacity-0'
-          }`}>
-            Click a piece to see legal moves, or drag to move
-          </p>
+        {/* AI material (top, no border) */}
+       
+        <div className="mb-2">
+          <MaterialTracker side="black" noBorder />
         </div>
-        
         <Chessboard
           options={{
             position: gameState.fen,
@@ -308,6 +303,10 @@ export default function SimpleChessBoard({ showMoveIndicators = true }: SimpleCh
             },
           }}
         />
+        {/* Player material (bottom) */}
+        <div className="mt-2">
+          <MaterialTracker side="white" noBorder/>
+        </div>
         
         {gameState.isGameOver && (
           <div className="mt-4 text-center">

@@ -6,7 +6,7 @@ import { GameRecord } from '@/services/database';
 import GameReview from './GameReview';
 
 export default function Dashboard() {
-  const { playerStats, getGames, saveGame } = useDatabase();
+  const { playerStats, getGames } = useDatabase();
   const [games, setGames] = useState<GameRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReview, setShowReview] = useState(false);
@@ -47,35 +47,7 @@ export default function Dashboard() {
     return 'text-red-600';
   };
 
-  const createTestGame = async () => {
-    try {
-      console.log('🧪 Creating test game...');
-      const testGame: GameRecord = {
-        result: 'win',
-        moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'b4', 'Bxb4', 'c3', 'Ba5', 'd4', 'exd4', 'cxd4', 'Bb4+', 'Bd2', 'Bxd2+', 'Nxd2', 'd6', 'O-O', 'Nf6', 'e5', 'dxe5', 'dxe5', 'Nxe5', 'Qe2', 'Nc6', 'Bxf7+', 'Kxf7', 'Qxe5', 'Qd6', 'Qxd6', 'cxd6', 'Nf3', 'Ke7', 'Rfe1', 'Kf7', 'Re6', 'd5', 'Rae1', 'Be6', 'R1e2', 'Rc8', 'R6e5', 'Rc2', 'R2e3', 'Rxb2', 'Rxe6', 'Kxe6', 'Re3+', 'Kf7', 'Rf3+', 'Kg8', 'Rf6', 'Kh7', 'Rf7+', 'Kh8', 'Rf8#'],
-        pgn: '[Event "Test Game"]\n[Site "Chess Trainer"]\n[Date "2024.01.01"]\n[Round "1"]\n[White "Player"]\n[Black "AI"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 6. d4 exd4 7. cxd4 Bb4+ 8. Bd2 Bxd2+ 9. Nxd2 d6 10. O-O Nf6 11. e5 dxe5 12. dxe5 Nxe5 13. Qe2 Nc6 14. Bxf7+ Kxf7 15. Qxe5 Qd6 16. Qxd6 cxd6 17. Nf3 Ke7 18. Rfe1 Kf7 19. Re6 d5 20. Rae1 Be6 21. R1e2 Rc8 22. R6e5 Rc2 23. R2e3 Rxb2 24. Rxe6 Kxe6 25. Re3+ Kf7 26. Rf3+ Kg8 27. Rf6 Kh7 28. Rf7+ Kh8 29. Rf8# 1-0',
-        accuracy: 85,
-        blunders: 0,
-        mistakes: 2,
-        inaccuracies: 1,
-        date: new Date().toISOString(),
-        elo_before: 100,
-        elo_after: 108,
-        win_streak: 1,
-        loss_streak: 0,
-      };
-      
-      await saveGame(testGame);
-      console.log('✅ Test game created successfully');
-      
-      // Reload games
-      const gamesData = await getGames(50);
-      setGames(gamesData);
-      console.log('📊 Reloaded games:', gamesData.length);
-    } catch (error) {
-      console.error('❌ Failed to create test game:', error);
-    }
-  };
+  
 
   const handleReviewGame = (game: GameRecord) => {
     setSelectedGame(game);
@@ -224,16 +196,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Test Button */}
-      <div className="mt-8 mb-4">
-        <button
-          onClick={createTestGame}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-        >
-          🧪 Create Test Game
-        </button>
-        <p className="text-sm text-gray-600 mt-2">Click to add a dummy game for testing</p>
-      </div>
+      
 
       {/* Recent Games */}
       <div className="mt-8">

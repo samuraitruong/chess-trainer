@@ -119,12 +119,13 @@ function PlayUI() {
               showMoveIndicators={showMoveIndicators}
               onShowMoveIndicatorsChange={setShowMoveIndicators}
             />
+
             
             {/* Chess Board and Move Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Chess Board */}
               <div className="lg:col-span-2">
-                <SimpleChessBoard showMoveIndicators={showMoveIndicators} />
+                  <SimpleChessBoard showMoveIndicators={showMoveIndicators} />
               </div>
               
               {/* Move Panel */}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StockfishConfig } from '@/types/chess';
+import { getLevelProfile } from '@/utils/levelConfig';
 import { Chess } from 'chess.js';
 
 export function useStockfish() {
@@ -72,46 +73,41 @@ export function useStockfish() {
       // Set up the position
       stockfishRef.current.postMessage(`position fen ${fen}`);
       
-      // Configure Stockfish with UCI_LimitStrength for ELO-based play
-      console.log(`🔧 Configuring Stockfish for ELO: ${config.elo}`);
-      
-      if (config.elo < 1320) {
-        // For ELOs below 1320, use sophisticated mistake system with multiple PV
-        console.log(`📉 Low ELO detected (${config.elo} < 1320), using realistic mistake system`);
-        
-        // Disable UCI_LimitStrength and enable multiple PV for realistic mistakes
+      // Map ELO to level profile
+      const levelFromElo = (elo: number) => {
+        // Map 50..2000 to 1..20
+        const minElo = 50, maxElo = 2000;
+        const fraction = Math.max(0, Math.min(1, (elo - minElo) / (maxElo - minElo)));
+        return 1 + Math.floor(fraction * 19);
+      };
+      const lvl = levelFromElo(config.elo);
+      const profile = getLevelProfile(lvl);
+      console.log(`🎯 Using level profile`, profile);
+
+      // Configure according to level profile
+      let timeLimit = 500;
+      let depthLimit = 15;
+      if (profile.play.kind === 'mistake') {
         stockfishRef.current.postMessage(`setoption name UCI_LimitStrength value false`);
-        stockfishRef.current.postMessage(`setoption name MultiPV value 12`);
-        console.log(`📤 Sent to Stockfish: setoption name MultiPV value 12`);
-        
-        // Set up realistic weakening options
+        stockfishRef.current.postMessage(`setoption name MultiPV value ${profile.play.multipv}`);
         stockfishRef.current.postMessage(`setoption name Threads value 1`);
         stockfishRef.current.postMessage(`setoption name Hash value 1`);
-        console.log(`📤 Sent to Stockfish: setoption name Threads value 1`);
-        console.log(`📤 Sent to Stockfish: setoption name Hash value 1`);
-        
-        console.log(`🎯 Stockfish config: ELO=${config.elo} -> MultiPV=12 (realistic mistakes)`);
-        console.log(`📊 Using multiple PV to simulate human-like mistakes`);
-        console.log(`🔧 UCI_LimitStrength disabled to use MultiPV system`);
+        // Random time in band
+        const jitter = profile.play.timeMinMs + Math.random() * (profile.play.timeMaxMs - profile.play.timeMinMs);
+        timeLimit = Math.floor(jitter);
+        depthLimit = profile.play.depthCap;
+        console.log(`📉 Mistake mode: MultiPV=${profile.play.multipv}, time≈${timeLimit}ms, depth=${depthLimit}`);
       } else {
-        // For ELOs 1320+, use UCI_LimitStrength with UCI_Elo
-        console.log(`📈 High ELO detected (${config.elo} >= 1320), using UCI_Elo`);
         stockfishRef.current.postMessage(`setoption name UCI_LimitStrength value true`);
-        
-        // Only clamp if ELO is above 3190, don't raise low ELOs
-        const clampedElo = Math.min(3190, config.elo);
+        const clampedElo = Math.min(3190, profile.play.uciElo);
         stockfishRef.current.postMessage(`setoption name UCI_Elo value ${clampedElo}`);
-        
-        console.log(`🎯 Stockfish config: ELO=${config.elo} -> UCI_Elo=${clampedElo} (UCI_LimitStrength enabled)`);
+        stockfishRef.current.postMessage(`setoption name MultiPV value 1`);
+        timeLimit = Math.max(500, Math.min(5000, profile.play.timeMs));
+        depthLimit = 15; // auto-depth by time
+        console.log(`📈 UCI_Elo mode: ELO=${clampedElo}, time=${timeLimit}ms`);
       }
-      
-      // Use realistic time limits with random variation for human-like behavior
-      const baseTimeLimit = config.elo < 1320 ? 50 : Math.max(500, Math.min(5000, config.elo * 2));
-      const randomVariation = config.elo < 1320 ? Math.random() * 100 + 50 : 0; // 50-150ms random variation
-      const timeLimit = Math.floor(baseTimeLimit + randomVariation);
-      const depthLimit = config.elo < 1320 ? 1 : 15;
-      console.log(`⏱️ Time limit set to: ${timeLimit}ms (ELO: ${config.elo})`);
-      console.log(`🔍 Depth limit set to: ${depthLimit} (ELO: ${config.elo})`);
+      console.log(`⏱️ Time limit set to: ${timeLimit}ms (Level: ${lvl})`);
+      console.log(`🔍 Depth limit set to: ${depthLimit} (Level: ${lvl})`);
       
       // Add realistic thinking delay to simulate human behavior
       const thinkingDelay = config.elo < 1320 ? Math.random() * 1000 + 500 : 200; // 500-1500ms for low ELOs
@@ -119,12 +115,10 @@ export function useStockfish() {
       
       setTimeout(() => {
         console.log(`⏰ Starting search after thinking delay...`);
-        if (config.elo < 1320) {
-          // For low ELOs, use both depth and time limits
+        if (profile.play.kind === 'mistake') {
           stockfishRef.current?.postMessage(`go depth ${depthLimit} movetime ${timeLimit}`);
           console.log(`🔍 Search command: go depth ${depthLimit} movetime ${timeLimit}`);
         } else {
-          // For high ELOs, use time limit only
           stockfishRef.current?.postMessage(`go movetime ${timeLimit}`);
           console.log(`🔍 Search command: go movetime ${timeLimit}`);
         }
@@ -142,37 +136,24 @@ export function useStockfish() {
             
             // Sophisticated mistake system using ELO-based move selection
             let finalMove = move;
-            if (config.elo < 1320) {
-              // Define move selection probabilities based on ELO
-              const getMoveProbabilities = (elo: number) => {
-                if (elo < 100) return { best: 0.1, second: 0.2, third: 0.3, random: 0.4 };
-                if (elo < 200) return { best: 0.2, second: 0.3, third: 0.3, random: 0.2 };
-                if (elo < 300) return { best: 0.3, second: 0.4, third: 0.2, random: 0.1 };
-                if (elo < 400) return { best: 0.4, second: 0.4, third: 0.15, random: 0.05 };
-                if (elo < 500) return { best: 0.5, second: 0.35, third: 0.1, random: 0.05 };
-                if (elo < 600) return { best: 0.6, second: 0.3, third: 0.08, random: 0.02 };
-                if (elo < 700) return { best: 0.7, second: 0.25, third: 0.04, random: 0.01 };
-                if (elo < 800) return { best: 0.8, second: 0.18, third: 0.02, random: 0.0 };
-                if (elo < 900) return { best: 0.85, second: 0.13, third: 0.02, random: 0.0 };
-                if (elo < 1000) return { best: 0.9, second: 0.08, third: 0.02, random: 0.0 };
-                if (elo < 1100) return { best: 0.95, second: 0.04, third: 0.01, random: 0.0 };
-                return { best: 0.98, second: 0.02, third: 0.0, random: 0.0 };
+            if (profile.play.kind === 'mistake') {
+              const probabilities = {
+                best: profile.play.bestProb,
+                second: profile.play.secondProb,
+                third: profile.play.thirdProb,
+                random: profile.play.randomProb,
               };
-              
-              const probabilities = getMoveProbabilities(config.elo);
               const random = Math.random();
-              
               if (random < probabilities.best) {
-                // Play best move
                 finalMove = move;
-                console.log(`🎯 Best move selected (ELO: ${config.elo})`);
+                console.log(`🎯 Best move selected (lvl: ${lvl})`);
               } else if (random < probabilities.best + probabilities.second) {
                 // Play second best move (simulate with random legal move for now)
                 const chess = new Chess(fen);
                 const legalMoves = chess.moves();
                 if (legalMoves.length > 1) {
                   finalMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                  console.log(`🥈 Second best move selected: ${move} -> ${finalMove} (ELO: ${config.elo})`);
+                  console.log(`🥈 Second-best selected: ${move} -> ${finalMove} (lvl: ${lvl})`);
                 }
               } else if (random < probabilities.best + probabilities.second + probabilities.third) {
                 // Play third best move
@@ -180,7 +161,7 @@ export function useStockfish() {
                 const legalMoves = chess.moves();
                 if (legalMoves.length > 1) {
                   finalMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                  console.log(`🥉 Third best move selected: ${move} -> ${finalMove} (ELO: ${config.elo})`);
+                  console.log(`🥉 Third-best selected: ${move} -> ${finalMove} (lvl: ${lvl})`);
                 }
               } else {
                 // Play random move
@@ -188,7 +169,7 @@ export function useStockfish() {
                 const legalMoves = chess.moves();
                 if (legalMoves.length > 1) {
                   finalMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                  console.log(`🎲 Random move selected: ${move} -> ${finalMove} (ELO: ${config.elo})`);
+                  console.log(`🎲 Random move selected: ${move} -> ${finalMove} (lvl: ${lvl})`);
                 }
               }
             }
