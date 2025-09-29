@@ -1,0 +1,82 @@
+  # Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - heading "🧩 Chess Trainer" [level=1] [ref=e8]
+        - navigation [ref=e9]:
+          - button "Play" [ref=e10]
+          - button "Dashboard" [ref=e11]
+    - main [ref=e12]:
+      - generic [ref=e13]:
+        - heading "Your Progress" [level=2] [ref=e14]
+        - generic [ref=e15]:
+          - generic [ref=e17]:
+            - generic [ref=e18]:
+              - paragraph [ref=e19]: Current AI Level
+              - paragraph [ref=e20]: "100"
+            - img [ref=e22]
+          - generic [ref=e25]:
+            - generic [ref=e26]:
+              - paragraph [ref=e27]: Win Rate
+              - paragraph [ref=e28]: 0.0%
+            - img [ref=e30]
+          - generic [ref=e33]:
+            - generic [ref=e34]:
+              - paragraph [ref=e35]: Avg Accuracy
+              - paragraph [ref=e36]: 0.0%
+            - img [ref=e38]
+          - generic [ref=e41]:
+            - generic [ref=e42]:
+              - paragraph [ref=e43]: Games Played
+              - paragraph [ref=e44]: "0"
+            - img [ref=e46]
+        - generic [ref=e48]:
+          - heading "Current Streaks" [level=3] [ref=e49]
+          - generic [ref=e50]:
+            - generic [ref=e52]:
+              - generic [ref=e53]:
+                - paragraph [ref=e54]: Win Streak
+                - paragraph [ref=e55]: "0"
+              - img [ref=e57]
+            - generic [ref=e60]:
+              - generic [ref=e61]:
+                - paragraph [ref=e62]: Loss Streak
+                - paragraph [ref=e63]: "0"
+              - img [ref=e65]
+        - generic [ref=e67]:
+          - heading "Game History" [level=3] [ref=e68]
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - generic [ref=e71]: "0"
+              - generic [ref=e72]: Wins
+            - generic [ref=e73]:
+              - generic [ref=e74]: "0"
+              - generic [ref=e75]: Losses
+            - generic [ref=e76]:
+              - generic [ref=e77]: "0"
+              - generic [ref=e78]: Draws
+        - text: "0"
+        - generic [ref=e79]:
+          - button "🧪 Create Test Game" [active] [ref=e80]
+          - paragraph [ref=e81]: Click to add a dummy game for testing
+        - generic [ref=e82]:
+          - heading "Recent Games" [level=3] [ref=e83]
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - generic [ref=e88]:
+                - generic [ref=e89]: "Game #1"
+                - generic [ref=e90]: 1-0
+                - generic [ref=e91]: 57 moves
+              - generic [ref=e92]:
+                - generic [ref=e93]: "Accuracy: 85.0%"
+                - generic [ref=e94]: "ELO: 100 → 108"
+                - generic [ref=e95]: 9/29/2025
+            - button "Review →" [ref=e97]
+    - button "🐛" [ref=e98]
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105] [cursor=pointer]
+  - alert [ref=e108]
+```
