@@ -296,10 +296,10 @@ export function useStockfish() {
   const analyzePosition = useCallback(async (
     fen: string,
     depth: number = 15
-  ): Promise<{ evaluation: number; bestMove: string; pv: string[]; pvLines: Array<{ evaluation: number; moves: string[] }>; }> => {
+  ): Promise<{ evaluation: number; bestMove: string; pv: string[]; pvLines: Array<{ evaluation: number; moves: string[] }>; mateIn: number | null; mateFor: 'white' | 'black' | null; }> => {
     return new Promise((resolve) => {
       if (!stockfishRef.current || !isReady) {
-        resolve({ evaluation: 0, bestMove: '', pv: [], pvLines: [] });
+        resolve({ evaluation: 0, bestMove: '', pv: [], pvLines: [], mateIn: null, mateFor: null });
         return;
       }
 
@@ -309,11 +309,12 @@ export function useStockfish() {
       let allMoves: string[] = [];
       const pvLines: Array<{evaluation: number, moves: string[]}> = []; // Store PV lines with evaluations
       let bestMoves: string[] = [];
+      let lastMateInWhitePerspective: number | null = null; // positive => white mates in N, negative => black mates in N
       
       // Ensure Stockfish is ready before setting MultiPV
       if (!isReady) {
         console.error('📊 Stockfish not ready for analysis');
-        resolve({ evaluation: 0, bestMove: '', pv: [], pvLines: [] });
+        resolve({ evaluation: 0, bestMove: '', pv: [], pvLines: [], mateIn: null, mateFor: null });
         return;
       }
       
@@ -355,6 +356,12 @@ export function useStockfish() {
             const mateIn = parseInt(mateMatch[1]);
             // Represent mate scores as large centipawn values with sign
             evalCp = mateIn > 0 ? 32000 : -32000;
+            // Track mate-in from White perspective (positive -> white mates)
+            const whiteMateIn = sideToMove === 'w' ? mateIn : -mateIn;
+            // Only track for the principal line (multipv 1)
+            if (multipvNumber === 1) {
+              lastMateInWhitePerspective = whiteMateIn;
+            }
           } else {
             const cpMatchInline = message.match(/\bscore cp (-?\d+)/);
             if (cpMatchInline) evalCp = parseInt(cpMatchInline[1]);
@@ -413,6 +420,8 @@ export function useStockfish() {
           const filledPvLines = pvLines.filter(Boolean);
           const bestLine = filledPvLines[0] ?? filledPvLines.slice().sort((a,b)=>b.evaluation-a.evaluation)[0];
           const finalEvaluation = bestLine ? bestLine.evaluation : lastEvaluation;
+          const finalMateIn = lastMateInWhitePerspective;
+          const mateFor = finalMateIn == null ? null : (finalMateIn > 0 ? 'white' : 'black');
           
           // Keep original order by multipv (1..n). If gaps, compress.
           const sortedPvLines = filledPvLines;
@@ -446,7 +455,9 @@ export function useStockfish() {
             bestMove, 
             pv: allPvMoves,
             pvLines: completePvLines,
-          } as unknown as { evaluation: number; bestMove: string; pv: string[]; pvLines: Array<{ evaluation: number; moves: string[] }> });
+            mateIn: finalMateIn,
+            mateFor,
+          } as unknown as { evaluation: number; bestMove: string; pv: string[]; pvLines: Array<{ evaluation: number; moves: string[] }>; mateIn: number | null; mateFor: 'white' | 'black' | null; });
           
           // Reset MultiPV to 1
           console.log('📊 Resetting MultiPV to 1...');

@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
+import { FaChessKnight } from 'react-icons/fa';
 import { DatabaseProvider, useDatabase } from '@/contexts/DatabaseContext';
 import SimpleChessBoard from '@/components/SimpleChessBoard';
 import GameControls from '@/components/GameControls';
-import Dashboard from '@/components/Dashboard';
 import GameReview from '@/components/GameReview';
 import MovePanel from '@/components/MovePanel';
 import DebugOverlay from '@/components/DebugOverlay';
@@ -94,9 +95,9 @@ function CollapsibleGameControls({
 
 function ChessTrainerApp() {
   const [showReview, setShowReview] = useState(false);
-  const [activeTab, setActiveTab] = useState<'play' | 'dashboard'>('play');
   const [isControlsCollapsed, setIsControlsCollapsed] = useState(false);
   const [showMoveIndicators, setShowMoveIndicators] = useState(true);
+  const { gameState } = useDatabase();
 
   return (
     <DatabaseProvider>
@@ -106,31 +107,14 @@ function ChessTrainerApp() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <h1 className="text-2xl font-bold text-gray-900">🧩 Chess Trainer</h1>
+                <div className="flex-shrink-0 flex items-center space-x-2">
+                  <FaChessKnight className="text-gray-900" />
+                  <h1 className="text-2xl font-bold text-gray-900">Chess Trainer</h1>
                 </div>
               </div>
               <nav className="flex space-x-8">
-                <button
-                  onClick={() => setActiveTab('play')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'play'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Play
-                </button>
-                <button
-                  onClick={() => setActiveTab('dashboard')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'dashboard'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Dashboard
-                </button>
+                <Link href="/" className="px-3 py-2 rounded-md text-sm font-medium transition-colors bg-blue-100 text-blue-700">Play</Link>
+                <Link href="/dashboard" className="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-500 hover:text-gray-700">Dashboard</Link>
               </nav>
             </div>
           </div>
@@ -138,30 +122,30 @@ function ChessTrainerApp() {
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {activeTab === 'play' && (
-            <div className="space-y-8">
-              {/* Collapsible Game Controls */}
-              <CollapsibleGameControls 
-                isCollapsed={isControlsCollapsed}
-                onToggle={() => setIsControlsCollapsed(!isControlsCollapsed)}
-                showMoveIndicators={showMoveIndicators}
-                onShowMoveIndicatorsChange={setShowMoveIndicators}
-              />
-              
-              {/* Chess Board and Move Panel */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Chess Board */}
-                <div className="lg:col-span-2">
-                  <SimpleChessBoard showMoveIndicators={showMoveIndicators} />
-                </div>
-                
-                {/* Move Panel */}
-                <div className="lg:col-span-1">
-                  <MovePanel />
-                </div>
+          <div className="space-y-8">
+            {/* Collapsible Game Controls */}
+            <CollapsibleGameControls 
+              isCollapsed={isControlsCollapsed}
+              onToggle={() => setIsControlsCollapsed(!isControlsCollapsed)}
+              showMoveIndicators={showMoveIndicators}
+              onShowMoveIndicatorsChange={setShowMoveIndicators}
+            />
+            
+            {/* Chess Board and Move Panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Chess Board */}
+              <div className="lg:col-span-2">
+                <SimpleChessBoard showMoveIndicators={showMoveIndicators} />
               </div>
               
-              {/* Review Button */}
+              {/* Move Panel */}
+              <div className="lg:col-span-1">
+                <MovePanel />
+              </div>
+            </div>
+            
+            {/* Review Button - only when game finished */}
+            {gameState?.isGameOver && (
               <div className="text-center">
                 <button
                   onClick={() => setShowReview(true)}
@@ -170,12 +154,8 @@ function ChessTrainerApp() {
                   Review Game
                 </button>
               </div>
-            </div>
-          )}
-
-          {activeTab === 'dashboard' && (
-            <Dashboard />
-          )}
+            )}
+          </div>
         </main>
 
         {/* Game Review Modal */}

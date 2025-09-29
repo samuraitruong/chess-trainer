@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { IoCopyOutline, IoClose, IoPlaySkipBack, IoPlayBack, IoPlayForward, IoPlaySkipForward } from 'react-icons/io5';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { useDatabase } from '@/contexts/DatabaseContext';
@@ -24,12 +25,16 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
     console.log('🔄 currentFen state changed to:', currentFen);
   }, [currentFen]);
   const [positionEvaluation, setPositionEvaluation] = useState<number>(0);
+  const [mateIn, setMateIn] = useState<number | null>(null);
+  const [mateFor, setMateFor] = useState<'white' | 'black' | null>(null);
   // Removed unused bestMove state to satisfy linter
   const [principalVariation, setPrincipalVariation] = useState<string[]>([]);
   const [completePvLines, setCompletePvLines] = useState<Array<{evaluation: number, moves: string[]}>>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [gameFens, setGameFens] = useState<string[]>([]);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [lastMoveArrow, setLastMoveArrow] = useState<[string, string] | null>(null);
+  const [bestMoveArrow, setBestMoveArrow] = useState<[string, string] | null>(null);
 
   // Function to add debug logs
   const addDebugLog = (message: string) => {
@@ -86,6 +91,26 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
     
     console.log('🔧 Generated', fens.length, 'FEN strings:', fens);
     setGameFens(fens);
+    // Set initial view to the first move if available
+    if (fens.length > 1) {
+      setCurrentMoveIndex(1);
+      setCurrentFen(fens[1]);
+      console.log('🚀 Initial review position set to first move FEN:', fens[1]);
+      try {
+        const chessForArrow = new Chess();
+        const mv = chessForArrow.move(reviewGame.moves[0]);
+        if (mv) {
+          setLastMoveArrow([mv.from as string, mv.to as string]);
+        } else {
+          setLastMoveArrow(null);
+        }
+      } catch (e) {
+        setLastMoveArrow(null);
+      }
+    } else if (fens.length > 0) {
+      setCurrentMoveIndex(0);
+      setCurrentFen(fens[0]);
+    }
   }, [reviewGame.moves]);
 
   const analyzeCurrentPosition = useCallback(async (fen: string) => {
@@ -102,6 +127,31 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
       if (result) {
         setPositionEvaluation(result.evaluation || 0);
         setPrincipalVariation(result.pv || []);
+        setMateIn(result.mateIn ?? null);
+        setMateFor(result.mateFor ?? null);
+
+        // Compute best move arrow from PV for current position
+        try {
+          const chessForBest = new Chess(fen);
+          let bestSan: string | null = null;
+          if (result.pvLines && result.pvLines.length > 0 && result.pvLines[0].moves.length > 0) {
+            bestSan = result.pvLines[0].moves[0];
+          } else if (result.pv && result.pv.length > 0) {
+            bestSan = result.pv[0];
+          }
+          if (bestSan) {
+            const move = chessForBest.move(bestSan);
+            if (move && typeof move.from === 'string' && typeof move.to === 'string') {
+              setBestMoveArrow([move.from as string, move.to as string]);
+            } else {
+              setBestMoveArrow(null);
+            }
+          } else {
+            setBestMoveArrow(null);
+          }
+        } catch (e) {
+          setBestMoveArrow(null);
+        }
         
         // Store complete PV lines if available
         if (result.pvLines) {
@@ -110,6 +160,9 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
         }
         
         addDebugLog('🔍 GameReview: Set evaluation: ' + result.evaluation);
+        if (result.mateIn != null) {
+          addDebugLog('🔍 GameReview: Detected mate: M' + Math.abs(result.mateIn) + ' for ' + result.mateFor);
+        }
         addDebugLog('🔍 GameReview: Set PV: ' + JSON.stringify(result.pv));
       } else {
         addDebugLog('🔍 GameReview: No result from analyzePosition');
@@ -127,10 +180,6 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
     if (isOpen && reviewGame.moves.length > 0) {
       console.log('🚀 Calling generateGameFens');
       generateGameFens();
-      // Set initial position to the starting position
-      console.log('🚀 Setting initial position');
-      setCurrentMoveIndex(0);
-      setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
     }
   }, [isOpen, generateGameFens, reviewGame.moves.length]);
 
@@ -165,6 +214,20 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
       addDebugLog('🎯 GameReview: setCurrentFen called with: ' + newFen);
       addDebugLog('🎯 GameReview: This should trigger useEffect for analysis');
       // Analysis will be triggered by useEffect when currentFen changes
+      // Compute last move arrow from game start to this index
+      try {
+        const chessForArrow = new Chess();
+        let last: { from: string; to: string } | null = null;
+        for (let i = 0; i < index; i++) {
+          const mv = chessForArrow.move(reviewGame.moves[i]);
+          if (mv) {
+            last = { from: mv.from as string, to: mv.to as string };
+          }
+        }
+        setLastMoveArrow(last ? [last.from, last.to] : null);
+      } catch (e) {
+        setLastMoveArrow(null);
+      }
     } else {
       addDebugLog('❌ GameReview: FEN not found for move index: ' + index + ' fenIndex: ' + fenIndex + ' gameFens length: ' + gameFens.length);
     }
@@ -191,11 +254,13 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
   };
 
   const formatEvaluation = (evaluation: number) => {
+    // If mate detected, display as M<N>
+    if (mateIn != null && mateFor) {
+      return `M${Math.abs(mateIn)}`;
+    }
     if (Math.abs(evaluation) < 10) return '0.0';
-    
     // Convert centipawns to pawns (divide by 100)
     const pawns = evaluation / 100;
-    
     return pawns > 0 ? `+${pawns.toFixed(1)}` : `${pawns.toFixed(1)}`;
   };
 
@@ -223,15 +288,18 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={copyDebugLogs}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center space-x-2"
+                  aria-label="Copy Debug Logs"
                 >
-                  📋 Copy Debug Logs
+                  <IoCopyOutline />
+                  <span>Copy Debug Logs</span>
                 </button>
                 <button
                   onClick={onClose}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                  className="text-gray-500 hover:text-gray-700 text-2xl flex items-center"
+                  aria-label="Close"
                 >
-                  ×
+                  <IoClose />
                 </button>
               </div>
             </div>
@@ -243,30 +311,39 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
             <div className="flex items-center justify-center space-x-4">
               {/* Vertical Evaluation Bar - Same height as board */}
               <div className="flex flex-col items-center space-y-2">
-                <div className="text-xs font-medium text-gray-600">Black</div>
                 <div className="w-6 h-[500px] bg-gray-200 overflow-hidden relative flex flex-col">
                   {/* Black section (top) */}
                   <div 
-                    className="w-full bg-red-500 transition-all duration-500"
+                    className="w-full bg-gray-700 transition-all duration-500"
                     style={{ 
-                      height: `${Math.max(0, Math.min(100, 50 - (positionEvaluation / 100) * 25))}%`
+                      height: `${(() => {
+                        // If mate detected, snap bar fully to advantaged side
+                        if (mateIn != null && mateFor) {
+                          return mateFor === 'black' ? 100 : 0;
+                        }
+                        return Math.max(0, Math.min(100, 50 - (positionEvaluation / 100) * 6.25));
+                      })()}%`
                     }}
                   />
                   {/* White section (bottom) */}
                   <div 
-                    className="w-full bg-green-500 transition-all duration-500"
+                    className="w-full bg-gray-300 transition-all duration-500"
                     style={{ 
-                      height: `${Math.max(0, Math.min(100, 50 + (positionEvaluation / 100) * 25))}%`
+                      height: `${(() => {
+                        if (mateIn != null && mateFor) {
+                          return mateFor === 'white' ? 100 : 0;
+                        }
+                        return Math.max(0, Math.min(100, 50 + (positionEvaluation / 100) * 6.25));
+                      })()}%`
                     }}
                   />
                   {/* Evaluation text overlay */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-xs font-bold text-white drop-shadow transform -rotate-90">
+                    <span className="text-xs font-bold text-white drop-shadow transform -rotate-90 px-1 py-0.5 bg-black/50 rounded">
                       {formatEvaluation(positionEvaluation)}
                     </span>
                   </div>
                 </div>
-                <div className="text-xs font-medium text-gray-600">White</div>
               </div>
 
               {/* Chessboard */}
@@ -288,7 +365,11 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
                     position: currentFen,
                     boardOrientation: 'white',
                     allowDragging: false,
-                    showNotation: true
+                    showNotation: true,
+                    arrows: [
+                      ...(lastMoveArrow ? [{ startSquare: lastMoveArrow[0], endSquare: lastMoveArrow[1], color: '#f59e0b' }] : []),
+                      ...(bestMoveArrow ? [{ startSquare: bestMoveArrow[0], endSquare: bestMoveArrow[1], color: '#10b981' }] : []),
+                    ],
                   }}
                 />
               </div>
@@ -299,33 +380,37 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
             <button
               onClick={goToStart}
               disabled={currentMoveIndex === 0}
-              className="px-3 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700"
+              className="px-3 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 flex items-center"
+              aria-label="Go to start"
             >
-              ⏮️ Start
+              <IoPlaySkipBack />
             </button>
             <button
               onClick={prevMove}
               disabled={currentMoveIndex === 0}
-              className="px-3 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700"
+              className="px-3 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 flex items-center"
+              aria-label="Previous move"
             >
-              ⏪ Prev
+              <IoPlayBack />
             </button>
             <span className="px-3 py-2 bg-gray-100 text-gray-900 rounded text-sm font-medium">
-              {currentMoveIndex} / {reviewGame.moves.length}
+              {Math.min(Math.max(currentMoveIndex, 1), reviewGame.moves.length)} / {reviewGame.moves.length}
             </span>
             <button
               onClick={nextMove}
               disabled={currentMoveIndex === reviewGame.moves.length}
-              className="px-3 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700"
+              className="px-3 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 flex items-center"
+              aria-label="Next move"
             >
-              Next ⏩
+              <IoPlayForward />
             </button>
             <button
               onClick={goToEnd}
               disabled={currentMoveIndex === reviewGame.moves.length}
-              className="px-3 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700"
+              className="px-3 py-2 bg-blue-600 text-white rounded text-sm disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 flex items-center"
+              aria-label="Go to end"
             >
-              End ⏭️
+              <IoPlaySkipForward />
             </button>
           </div>
 
@@ -340,57 +425,27 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
                 </div>
               ) : (
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm font-medium text-gray-700 mb-3">Best Moves:</div>
+                  <div className="text-sm font-medium text-gray-700 mb-3">Engine moves:</div>
                   <div className="space-y-2">
-                    {completePvLines.length > 0 ? (
-                      completePvLines.map((pvLine, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <span className="text-xs font-mono text-gray-600 min-w-[60px]">
-                            [{formatEvaluation(pvLine.evaluation)}]
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {pvLine.moves.map((move, moveIndex) => (
-                              <span 
-                                key={moveIndex}
-                                className={`px-2 py-1 rounded text-xs font-mono ${
-                                  index === 0 ? 'bg-green-100 text-green-800' :
-                                  index === 1 ? 'bg-blue-100 text-blue-800' :
-                                  index === 2 ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {move}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      principalVariation.slice(0, 4).map((move, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 rounded text-xs font-mono ${
-                            index === 0 ? 'bg-green-100 text-green-800 border-2 border-green-300' :
-                            index === 1 ? 'bg-blue-100 text-blue-800 border border-blue-300' :
-                            index === 2 ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
-                            'bg-gray-100 text-gray-800 border border-gray-300'
-                          }`}>
-                            {move}
-                          </span>
-                          <span className="text-xs text-gray-600">
-                            {index === 0 ? 'Best' : `#${index + 1}`}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  
-                  {/* Current Position Evaluation */}
-                  <div className="mt-3 pt-3 border-t border-gray-300">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-700">Position:</span>
-                      <span className={`font-bold text-lg ${getEvaluationColor(positionEvaluation)}`}>
-                        {formatEvaluation(positionEvaluation)}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-mono text-gray-600 min-w-[60px]">
+                        [{formatEvaluation(positionEvaluation)}]
                       </span>
+                      <div className="flex flex-wrap gap-1">
+                        {(() => {
+                          const bestLine = completePvLines.length > 0 ? completePvLines[0] : null;
+                          const bestSan = bestLine && bestLine.moves.length > 0
+                            ? bestLine.moves[0]
+                            : (principalVariation[0] || '');
+                          return bestSan ? (
+                            <span className="px-2 py-1 rounded text-xs font-mono bg-green-100 text-green-800">
+                              {bestSan}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500">No suggestion</span>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>
