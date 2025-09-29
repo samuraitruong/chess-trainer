@@ -119,9 +119,54 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
     setIsAnalyzing(true);
     
     try {
+      // If position is already checkmate, lock UI to M0 and full bar for winner
+      try {
+        const cmChess = new Chess();
+        cmChess.load(fen);
+        if (cmChess.isCheckmate()) {
+          const sideToMove = fen.split(' ')[1] === 'b' ? 'b' : 'w';
+          const winner = sideToMove === 'w' ? 'black' : 'white';
+          setMateIn(0);
+          setMateFor(winner as 'white' | 'black');
+          setPositionEvaluation(winner === 'white' ? 32000 : -32000);
+          setCompletePvLines([]);
+          setPrincipalVariation([]);
+          setBestMoveArrow(null);
+          addDebugLog('♟️ Detected checkmate from FEN. Winner: ' + winner + ' (M0). Skipping engine analysis.');
+          setIsAnalyzing(false);
+          return;
+        }
+      } catch (e) {
+        // Ignore parse errors and continue to engine analysis
+      }
+
       addDebugLog('🔍 GameReview: Calling analyzePosition with FEN: ' + fen + ' depth: 18');
-      // Use analyzePosition for full analysis with PV at maximum strength
-             const result = await analyzePosition(fen, 18);
+      // Use analyzePosition for full analysis with PV at maximum strength, with live updates
+             const result = await analyzePosition(
+        fen,
+        18,
+        (partial) => {
+          // Live UI updates as stronger lines arrive
+          setPositionEvaluation(partial.evaluation || 0);
+          setCompletePvLines(partial.pvLines || []);
+          setMateIn(partial.mateIn ?? null);
+          setMateFor(partial.mateFor ?? null);
+          // Update best move arrow from live PV
+          try {
+            const chessForBestLive = new Chess(fen);
+            const bestLineLive = partial.pvLines && partial.pvLines[0];
+            const bestSanLive = bestLineLive && bestLineLive.moves && bestLineLive.moves[0];
+            if (bestSanLive) {
+              const mv = chessForBestLive.move(bestSanLive);
+              if (mv && typeof mv.from === 'string' && typeof mv.to === 'string') {
+                setBestMoveArrow([mv.from as string, mv.to as string]);
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      );
       addDebugLog('🔍 GameReview: Analysis result: ' + JSON.stringify(result));
       
       if (result) {
@@ -275,9 +320,25 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
     return 'bg-gray-50 text-gray-700';
   };
 
-  if (!isOpen) return null;
-
   console.log('🎭 GameReview render - currentFen:', currentFen, 'currentMoveIndex:', currentMoveIndex, 'gameFens length:', gameFens.length);
+
+  // Keyboard navigation: ArrowLeft/ArrowRight
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevMove();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextMove();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, prevMove, nextMove]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -427,26 +488,47 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm font-medium text-gray-700 mb-3">Engine moves:</div>
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs font-mono text-gray-600 min-w-[60px]">
-                        [{formatEvaluation(positionEvaluation)}]
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {(() => {
-                          const bestLine = completePvLines.length > 0 ? completePvLines[0] : null;
-                          const bestSan = bestLine && bestLine.moves.length > 0
-                            ? bestLine.moves[0]
-                            : (principalVariation[0] || '');
-                          return bestSan ? (
-                            <span className="px-2 py-1 rounded text-xs font-mono bg-green-100 text-green-800">
-                              {bestSan}
+                    {completePvLines.length > 0 ? (
+                      completePvLines.map((pvLine, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <span className="text-xs font-mono text-gray-600 min-w-[60px]">[{formatEvaluation(pvLine.evaluation)}]</span>
+                          <div className="flex flex-wrap gap-1">
+                            {pvLine.moves.slice(0, 6).map((move, moveIndex) => (
+                              <span
+                                key={moveIndex}
+                                className={`px-2 py-1 rounded text-xs font-mono ${
+                                  index === 0 ? 'bg-green-100 text-green-800' :
+                                  index === 1 ? 'bg-blue-100 text-blue-800' :
+                                  index === 2 ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {move}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-mono text-gray-600 min-w-[60px]">[{formatEvaluation(positionEvaluation)}]</span>
+                        <div className="flex flex-wrap gap-1">
+                          {principalVariation.slice(0, 4).map((move, index) => (
+                            <span
+                              key={index}
+                              className={`px-2 py-1 rounded text-xs font-mono ${
+                                index === 0 ? 'bg-green-100 text-green-800' :
+                                index === 1 ? 'bg-blue-100 text-blue-800' :
+                                index === 2 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {move}
                             </span>
-                          ) : (
-                            <span className="text-xs text-gray-500">No suggestion</span>
-                          );
-                        })()}
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}

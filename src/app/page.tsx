@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { FaChessKnight } from 'react-icons/fa';
+import { IoChevronDown } from 'react-icons/io5';
 import { DatabaseProvider, useDatabase } from '@/contexts/DatabaseContext';
 import SimpleChessBoard from '@/components/SimpleChessBoard';
 import GameControls from '@/components/GameControls';
@@ -70,17 +71,7 @@ function CollapsibleGameControls({
           className="flex items-center space-x-2 cursor-pointer"
           onClick={onToggle}
         >
-          <span className="text-sm text-gray-500">
-            {isCollapsed ? 'Click to expand' : 'Click to collapse'}
-          </span>
-          <svg 
-            className={`w-5 h-5 text-gray-500 transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          <IoChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
         </div>
       </div>
       
@@ -93,14 +84,13 @@ function CollapsibleGameControls({
   );
 }
 
-function ChessTrainerApp() {
+function PlayUI() {
   const [showReview, setShowReview] = useState(false);
   const [isControlsCollapsed, setIsControlsCollapsed] = useState(false);
   const [showMoveIndicators, setShowMoveIndicators] = useState(true);
   const { gameState } = useDatabase();
 
   return (
-    <DatabaseProvider>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Header */}
         <header className="bg-white shadow-sm border-b">
@@ -121,7 +111,7 @@ function ChessTrainerApp() {
         </header>
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-2 md:px-4 sm:px-6 lg:px-8 py-4 md:py-8">
           <div className="space-y-8">
             {/* Collapsible Game Controls */}
             <CollapsibleGameControls 
@@ -167,6 +157,13 @@ function ChessTrainerApp() {
         {/* Debug Overlay */}
         <DebugOverlay />
       </div>
+  );
+}
+
+function ChessTrainerApp() {
+  return (
+    <DatabaseProvider>
+      <PlayUI />
     </DatabaseProvider>
   );
 }

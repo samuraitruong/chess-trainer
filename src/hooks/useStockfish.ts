@@ -295,7 +295,8 @@ export function useStockfish() {
 
   const analyzePosition = useCallback(async (
     fen: string,
-    depth: number = 15
+    depth: number = 15,
+    onUpdate?: (partial: { evaluation: number; pvLines: Array<{ evaluation: number; moves: string[] }>; mateIn: number | null; mateFor: 'white' | 'black' | null; }) => void
   ): Promise<{ evaluation: number; bestMove: string; pv: string[]; pvLines: Array<{ evaluation: number; moves: string[] }>; mateIn: number | null; mateFor: 'white' | 'black' | null; }> => {
     return new Promise((resolve) => {
       if (!stockfishRef.current || !isReady) {
@@ -310,6 +311,7 @@ export function useStockfish() {
       const pvLines: Array<{evaluation: number, moves: string[]}> = []; // Store PV lines with evaluations
       let bestMoves: string[] = [];
       let lastMateInWhitePerspective: number | null = null; // positive => white mates in N, negative => black mates in N
+      let lastPartialPushedAt = 0;
       
       // Ensure Stockfish is ready before setting MultiPV
       if (!isReady) {
@@ -408,6 +410,24 @@ export function useStockfish() {
               } catch (e) {
                 // ignore conversion errors
               }
+            }
+          }
+          // Emit partial update if available (throttle a bit)
+          if (onUpdate) {
+            const now = Date.now();
+            if (now - lastPartialPushedAt > 100) {
+              const filled = pvLines.filter(Boolean);
+              const bestLine = filled[0] ?? filled.slice().sort((a,b)=>b.evaluation-a.evaluation)[0];
+              const currentEval = bestLine ? bestLine.evaluation : lastEvaluation;
+              const currentMateIn = lastMateInWhitePerspective;
+              const currentMateFor = currentMateIn == null ? null : (currentMateIn > 0 ? 'white' : 'black');
+              onUpdate({
+                evaluation: currentEval,
+                pvLines: filled.slice(0, 4).map(pl => ({ evaluation: pl.evaluation, moves: pl.moves.slice(0, 6) })),
+                mateIn: currentMateIn,
+                mateFor: currentMateFor,
+              });
+              lastPartialPushedAt = now;
             }
           }
         }
