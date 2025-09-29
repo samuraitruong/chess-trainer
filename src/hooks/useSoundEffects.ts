@@ -6,7 +6,8 @@ export function useSoundEffects() {
   const playSound = useCallback((soundType: 'move' | 'check' | 'checkmate' | 'castle' | 'capture') => {
     try {
       // Create audio context for sound generation
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AnyWindow = window as unknown as { webkitAudioContext?: typeof AudioContext };
+      const audioContext = new (window.AudioContext || AnyWindow.webkitAudioContext!)();
       
       let frequency: number;
       let duration: number;

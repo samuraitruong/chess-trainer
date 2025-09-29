@@ -307,7 +307,7 @@ export function useStockfish() {
       const sideToMove = fen.split(' ')[1] === 'b' ? 'b' : 'w';
       let lastEvaluation = 0; // white-centric centipawns
       let allMoves: string[] = [];
-      let pvLines: Array<{evaluation: number, moves: string[]}> = []; // Store PV lines with evaluations
+      const pvLines: Array<{evaluation: number, moves: string[]}> = []; // Store PV lines with evaluations
       let bestMoves: string[] = [];
       
       // Ensure Stockfish is ready before setting MultiPV
@@ -372,7 +372,6 @@ export function useStockfish() {
               .filter((token: string) => /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(token));
             if (uciMoves.length > 0) {
               try {
-                const { Chess } = require('chess.js');
                 const chess = new Chess(fen);
                 const sanMoves: string[] = [];
                 for (const uciMove of uciMoves.slice(0, 6)) {
@@ -381,7 +380,7 @@ export function useStockfish() {
                     const move = chess.move({
                       from: uciMove.substring(0, 2),
                       to: uciMove.substring(2, 4),
-                      promotion: promotionChar as any,
+                      promotion: promotionChar as 'q' | 'r' | 'b' | 'n' | undefined,
                     });
                     if (move) sanMoves.push(move.san);
                   } catch (e) {

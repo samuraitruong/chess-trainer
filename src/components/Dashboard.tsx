@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useDatabase } from '@/contexts/DatabaseContext';
-import { GameRecord } from '@/types/chess';
+import { GameRecord } from '@/services/database';
 import GameReview from './GameReview';
 
 export default function Dashboard() {

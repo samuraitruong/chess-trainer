@@ -5,12 +5,12 @@ import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useStockfish } from '@/hooks/useStockfish';
-import { MoveAnalysis } from '@/types/chess';
+// import { MoveAnalysis } from '@/types/chess';
 
 interface GameReviewProps {
   isOpen: boolean;
   onClose: () => void;
-  game?: any;
+  game?: { moves: string[]; pgn?: string; result?: string } | null;
 }
 
 export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
@@ -24,7 +24,7 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
     console.log('🔄 currentFen state changed to:', currentFen);
   }, [currentFen]);
   const [positionEvaluation, setPositionEvaluation] = useState<number>(0);
-  const [bestMove, setBestMove] = useState<string>('');
+  // Removed unused bestMove state to satisfy linter
   const [principalVariation, setPrincipalVariation] = useState<string[]>([]);
   const [completePvLines, setCompletePvLines] = useState<Array<{evaluation: number, moves: string[]}>>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -101,17 +101,15 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
       
       if (result) {
         setPositionEvaluation(result.evaluation || 0);
-        setBestMove(result.bestMove || '');
         setPrincipalVariation(result.pv || []);
         
         // Store complete PV lines if available
-        if ((result as any).pvLines) {
-          console.log('🔍 GameReview: Complete PV lines:', (result as any).pvLines);
-          setCompletePvLines((result as any).pvLines);
+        if (result.pvLines) {
+          console.log('🔍 GameReview: Complete PV lines:', result.pvLines);
+          setCompletePvLines(result.pvLines);
         }
         
         addDebugLog('🔍 GameReview: Set evaluation: ' + result.evaluation);
-        addDebugLog('🔍 GameReview: Set best move: ' + result.bestMove);
         addDebugLog('🔍 GameReview: Set PV: ' + JSON.stringify(result.pv));
       } else {
         addDebugLog('🔍 GameReview: No result from analyzePosition');
@@ -134,7 +132,7 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
       setCurrentMoveIndex(0);
       setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
     }
-  }, [isOpen, generateGameFens]);
+  }, [isOpen, generateGameFens, reviewGame.moves.length]);
 
   // Analyze position when FEN changes
   useEffect(() => {
