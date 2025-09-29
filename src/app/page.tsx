@@ -9,7 +9,6 @@ import SimpleChessBoard from '@/components/SimpleChessBoard';
 import GameControls from '@/components/GameControls';
 import GameReview from '@/components/GameReview';
 import MovePanel from '@/components/MovePanel';
-import DebugOverlay from '@/components/DebugOverlay';
 
 function CollapsibleGameControls({ 
   isCollapsed, 
@@ -154,8 +153,7 @@ function PlayUI() {
           onClose={() => setShowReview(false)} 
         />
         
-        {/* Debug Overlay */}
-        <DebugOverlay />
+        
       </div>
   );
 }

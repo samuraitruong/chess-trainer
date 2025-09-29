@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
 import Dashboard from '@/components/Dashboard';
-import DebugOverlay from '@/components/DebugOverlay';
 import { FaChessKnight } from 'react-icons/fa';
 
 export default function DashboardPage() {
@@ -34,8 +33,7 @@ export default function DashboardPage() {
           <Dashboard />
         </main>
 
-        {/* Debug Overlay */}
-        <DebugOverlay />
+        
       </div>
     </DatabaseProvider>
   );

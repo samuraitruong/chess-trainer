@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { IoCopyOutline, IoClose, IoPlaySkipBack, IoPlayBack, IoPlayForward, IoPlaySkipForward } from 'react-icons/io5';
+import { IoClose, IoPlaySkipBack, IoPlayBack, IoPlayForward, IoPlaySkipForward } from 'react-icons/io5';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { useDatabase } from '@/contexts/DatabaseContext';
@@ -37,20 +37,10 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
   const [bestMoveArrow, setBestMoveArrow] = useState<[string, string] | null>(null);
 
   // Function to add debug logs
-  const addDebugLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logMessage = `[${timestamp}] ${message}`;
-    console.log(logMessage);
-    setDebugLogs(prev => [...prev.slice(-50), logMessage]); // Keep last 50 logs
-  };
+  const addDebugLog = (_message: string) => {};
 
   // Function to copy debug logs
-  const copyDebugLogs = () => {
-    const logsText = debugLogs.join('\n');
-    navigator.clipboard.writeText(logsText).then(() => {
-      alert('Debug logs copied to clipboard!');
-    });
-  };
+  const copyDebugLogs = () => {};
 
   // Use provided game or current game state
   const reviewGame = game || {
@@ -347,14 +337,7 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900">Game Review</h2>
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={copyDebugLogs}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center space-x-2"
-                  aria-label="Copy Debug Logs"
-                >
-                  <IoCopyOutline />
-                  <span>Copy Debug Logs</span>
-                </button>
+                
                 <button
                   onClick={onClose}
                   className="text-gray-500 hover:text-gray-700 text-2xl flex items-center"

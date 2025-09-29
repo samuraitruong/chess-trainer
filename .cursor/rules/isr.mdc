@@ -1,0 +1,14 @@
+Title: ISR/SSR Rules (MDC)
+
+Rendering:
+- Prefer static generation for stable pages; dashboard may use client data hydration
+- Avoid heavy computation in server components; push analysis to client where possible
+- Keep analysis engines (Stockfish) strictly client-side; no server runtime dependency
+
+Data:
+- Use DatabaseContext for client storage; do not access IndexedDB on server
+- Respect Next.js route boundaries; keep cross-page state in context or URL params
+
+Build/Agent:
+- Use `npm run build:agent` for isolated builds in CI/agent flows to avoid dev server interference
+

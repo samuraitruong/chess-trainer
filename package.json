@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:agent": "NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 AGENT_BUILD=1 next build --turbopack --no-lint"
   },
   "dependencies": {
     "chess.js": "^1.4.0",

@@ -1,0 +1,69 @@
+---
+alwaysApply: true
+---
+
+- Applies to all code in this repository: React/Next, hooks, services, and tests
+
+Styling & UI:
+- Use Tailwind classes; avoid inline styles unless dynamic values are required
+- Respect existing indentation (spaces vs tabs) and avoid reformatting unrelated code
+- Icons: prefer react-icons; do not use raw emoji/SVG for standard icons
+- Evaluation bar scale: full bar equals ±8.0 pawns; mate shows M<N> and snaps to full
+
+React/Next:
+- Hooks must be called unconditionally and at top-level in components
+- Use useCallback/useMemo for functions passed to effects/children to stabilize deps
+- Server vs Client: mark client components with 'use client' explicitly
+- Pages: keep `Play` at `/`, `Dashboard` at `/dashboard`; avoid mixing concerns
+
+TypeScript:
+- Prefer explicit types for public APIs and context values
+- Avoid any; do not suppress errors with ts-ignore unless documented
+
+Logging & Debug:
+- Use addDebugLog/console.log for temporary diagnostics; remove noisy logs before commit
+- Debug overlay should not block UI and must be toggleable
+
+Testing:
+- Add lightweight tests near features when behavior is subtle (e.g., eval mapping)
+
+Performance:
+- Stockfish analysis updates may stream; throttle UI updates (~100ms) to avoid jank
+
+Accessibility:
+- Buttons/controls need aria-labels when icon-only
+
+Title: General Engineering Rules (MDC)
+
+Scope:
+- Applies to all code in this repository: React/Next, hooks, services, and tests
+
+Styling & UI:
+- Use Tailwind classes; avoid inline styles unless dynamic values are required
+- Respect existing indentation (spaces vs tabs) and avoid reformatting unrelated code
+- Icons: prefer react-icons; do not use raw emoji/SVG for standard icons
+- Evaluation bar scale: full bar equals ±8.0 pawns; mate shows M<N> and snaps to full
+
+React/Next:
+- Hooks must be called unconditionally and at top-level in components
+- Use useCallback/useMemo for functions passed to effects/children to stabilize deps
+- Server vs Client: mark client components with 'use client' explicitly
+- Pages: keep `Play` at `/`, `Dashboard` at `/dashboard`; avoid mixing concerns
+
+TypeScript:
+- Prefer explicit types for public APIs and context values
+- Avoid any; do not suppress errors with ts-ignore unless documented
+
+Logging & Debug:
+- Use addDebugLog/console.log for temporary diagnostics; remove noisy logs before commit
+- Debug overlay should not block UI and must be toggleable
+
+Testing:
+- Add lightweight tests near features when behavior is subtle (e.g., eval mapping)
+
+Performance:
+- Stockfish analysis updates may stream; throttle UI updates (~100ms) to avoid jank
+
+Accessibility:
+- Buttons/controls need aria-labels when icon-only
+
