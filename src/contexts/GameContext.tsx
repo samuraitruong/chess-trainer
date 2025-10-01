@@ -35,6 +35,8 @@ const initialState: GameState = {
   isPlayerTurn: true,
   isThinking: false,
   currentElo: 100,
+  playerColor: 'white',
+  aiLevel: 1,
 };
 
 const initialStats: PlayerStats = {

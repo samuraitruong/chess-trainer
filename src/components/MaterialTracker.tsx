@@ -25,8 +25,16 @@ const PieceIcon: Record<Exclude<PieceType, 'k'>, React.ReactNode> = {
   q: <FaChessQueen className="inline-block" />,
 };
 
-function CapturedIcons({ counts, align = 'left' }: { counts: Partial<Record<PieceType, number>>; align?: 'left' | 'right' }) {
+function CapturedIcons({ counts, align = 'left', pieceColor = 'white' }: { 
+  counts: Partial<Record<PieceType, number>>; 
+  align?: 'left' | 'right';
+  pieceColor?: 'white' | 'black';
+}) {
   const order: PieceType[] = ['q', 'r', 'b', 'n', 'p'];
+  
+  // Different colors for white vs black pieces
+  const textColor = pieceColor === 'white' ? 'text-gray-800' : 'text-gray-500';
+  const countColor = pieceColor === 'white' ? 'text-gray-700' : 'text-gray-600';
 
   return (
     <div className={`flex flex-row flex-wrap gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
@@ -34,10 +42,10 @@ function CapturedIcons({ counts, align = 'left' }: { counts: Partial<Record<Piec
         const count = counts[pt];
         if (!count || count <= 0 || pt === 'k') return null;
         return (
-          <span key={pt} className="relative inline-flex items-center justify-center text-gray-800">
+          <span key={pt} className={`relative inline-flex items-center justify-center ${textColor}`}>
             <span className="text-sm">{PieceIcon[pt as Exclude<PieceType, 'k'>]}</span>
             {count > 1 && (
-              <span className="ml-0.5 text-[10px] text-gray-700">x{count}</span>
+              <span className={`ml-0.5 text-[10px] ${countColor}`}>x{count}</span>
             )}
           </span>
         );
@@ -60,9 +68,9 @@ export default function MaterialTracker({ side, noBorder = false }: { side: 'whi
     for (const san of gameState.moves) {
       try {
         const mv = chess.move(san) as Move | null;
-        if (mv && (mv as any).captured) {
-          const capturedType = ((mv as any).captured || '').toLowerCase() as PieceType;
-          const moverColor = (mv as any).color as 'w' | 'b';
+        if (mv && mv.captured) {
+          const capturedType = (mv.captured || '').toLowerCase() as PieceType;
+          const moverColor = mv.color as 'w' | 'b';
           const val = PIECE_VALUES[capturedType] || 0;
           if (moverColor === 'w') {
             whiteCapturedCounts[capturedType] = (whiteCapturedCounts[capturedType] || 0) + 1;
@@ -87,65 +95,109 @@ export default function MaterialTracker({ side, noBorder = false }: { side: 'whi
 
   const materialDiff = whiteMaterial - blackMaterial; // positive -> white up
   const isWhite = side === 'white';
+  
+  // New logic: AI is always on top, Player is always on bottom
+  // In SimpleChessBoard: AI is top, Player is bottom
+  const isPlayerSide = side === gameState.playerColor;
+  
   const levelFromElo = (elo: number) => {
     const minElo = 50, maxElo = 2000;
     const fraction = Math.max(0, Math.min(1, (elo - minElo) / (maxElo - minElo)));
     return 1 + Math.floor(fraction * 19);
   };
+  
   const aiLabel = React.useMemo(() => {
-    if (!isWhite) {
-      const lvl = levelFromElo(stockfishConfig.elo);
+    if (!isPlayerSide) {
+      const lvl = gameState.aiLevel;
       const profile = getLevelProfile(lvl);
       return profile.animalName;
     }
     return 'Player';
-  }, [isWhite, stockfishConfig.elo]);
+  }, [isPlayerSide, gameState.aiLevel, side, gameState.playerColor]);
+
+  const aiImage = React.useMemo(() => {
+    if (!isPlayerSide) {
+      const lvl = gameState.aiLevel;
+      const profile = getLevelProfile(lvl);
+      return `/ai/set1/${profile.animalName}.png`;
+    }
+    return null;
+  }, [isPlayerSide, gameState.aiLevel]);
   const showPlus = (isWhite && materialDiff > 0) || (!isWhite && materialDiff < 0);
   const plusVal = isWhite ? materialDiff : Math.abs(materialDiff);
   const counts = isWhite ? whiteCaptured : blackCaptured;
-  const align = isWhite ? 'left' : 'right';
+  // Player is always on the left, AI is always on the right
+  // Player should always be on the left, AI always on the right
+  const align = isPlayerSide ? 'left' : 'right';
 
   const derived = useMemo(() => {
     const elo = stockfishConfig.elo;
-    if (elo < 1320) {
+    const lvl = levelFromElo(elo);
+    const profile = getLevelProfile(lvl);
+    
+    if (profile.play.kind === 'mistake') {
       return {
         mode: 'Low ELO (realistic mistakes)',
         uciLimitStrength: false,
-        multipv: 12,
+        multipv: profile.play.multipv,
         threads: 1,
         hash: 1,
-        depth: 1,
-        timeLabel: '≈50–150 ms',
+        depth: profile.play.depthCap,
+        timeLabel: `≈${profile.play.timeMinMs}–${profile.play.timeMaxMs} ms`,
+        probabilities: {
+          best: Math.round(profile.play.bestProb * 100),
+          second: Math.round(profile.play.secondProb * 100),
+          third: Math.round(profile.play.thirdProb * 100),
+          random: Math.round(profile.play.randomProb * 100),
+        }
+      } as const;
+    } else {
+      const time = profile.play.timeMs;
+      return {
+        mode: 'UCI_LimitStrength',
+        uciLimitStrength: true,
+        multipv: 1,
+        threads: 'default',
+        hash: 'default',
+        depth: undefined,
+        timeLabel: `${time} ms`,
+        uciElo: profile.play.uciElo,
+        probabilities: null
       } as const;
     }
-    const time = Math.max(500, Math.min(5000, elo * 2));
-    return {
-      mode: 'UCI_LimitStrength',
-      uciLimitStrength: true,
-      multipv: 1,
-      threads: 'default',
-      hash: 'default',
-      depth: undefined,
-      timeLabel: `${time} ms`,
-    } as const;
   }, [stockfishConfig.elo]);
 
   return (
     <div className={`w-full px-3 py-2 ${noBorder ? '' : 'bg-white/70 border rounded-md'}`}>
-      <div className={`flex ${align === 'right' ? 'flex-row-reverse' : 'flex-row'} items-center justify-between`}>
+      <div className={`flex ${isPlayerSide ? 'flex-row' : 'flex-row-reverse'} items-center justify-between`}>
         <button
           type="button"
-          className="text-sm font-semibold text-gray-800 hover:text-blue-700"
+          className="text-sm font-semibold text-gray-800 hover:text-blue-700 flex items-center gap-2"
           onClick={() => {
             if (side === 'black') setShowConfig(true);
           }}
         >
+          {aiImage && (
+            <img 
+              src={aiImage} 
+              alt={aiLabel}
+              className="w-6 h-6 object-cover rounded-full border border-gray-300"
+              onError={(e) => {
+                // Hide image if it fails to load
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          )}
           {aiLabel}
         </button>
         {showPlus && <span className="text-xs font-bold text-green-700">+{plusVal}</span>}
       </div>
       <div className={`mt-1 ${align === 'right' ? 'text-right' : ''}`}>
-        <CapturedIcons counts={counts} align={align as 'left' | 'right'} />
+        <CapturedIcons 
+          counts={counts} 
+          align={align as 'left' | 'right'} 
+          pieceColor={side}
+        />
       </div>
       {side === 'black' && showConfig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -171,28 +223,21 @@ export default function MaterialTracker({ side, noBorder = false }: { side: 'whi
               <div className="flex items-center justify-between"><span className="text-gray-600">MultiPV</span><span className="font-medium">{derived.multipv}</span></div>
               <div className="flex items-center justify-between"><span className="text-gray-600">Depth</span><span className="font-medium">{derived.depth ?? 'auto'}</span></div>
               <div className="flex items-center justify-between"><span className="text-gray-600">Time/Move</span><span className="font-medium">{derived.timeLabel}</span></div>
+              {derived.uciElo && (
+                <div className="flex items-center justify-between"><span className="text-gray-600">UCI_Elo</span><span className="font-medium">{derived.uciElo}</span></div>
+              )}
+              {derived.probabilities && (
+                <>
+                  <div className="pt-2 border-t border-gray-200 text-xs uppercase tracking-wide text-gray-500">Move Selection Probabilities</div>
+                  <div className="flex items-center justify-between"><span className="text-gray-600">Best Move</span><span className="font-medium">{derived.probabilities.best}%</span></div>
+                  <div className="flex items-center justify-between"><span className="text-gray-600">2nd Best</span><span className="font-medium">{derived.probabilities.second}%</span></div>
+                  <div className="flex items-center justify-between"><span className="text-gray-600">3rd Best</span><span className="font-medium">{derived.probabilities.third}%</span></div>
+                  <div className="flex items-center justify-between"><span className="text-gray-600">Random</span><span className="font-medium">{derived.probabilities.random}%</span></div>
+                </>
+              )}
               <div className="pt-2 border-t border-gray-200 text-xs uppercase tracking-wide text-gray-500">Analysis mode (engine evaluation)</div>
               <div className="flex items-center justify-between"><span className="text-gray-600">MultiPV</span><span className="font-medium">4</span></div>
               <div className="flex items-center justify-between"><span className="text-gray-600">Depth</span><span className="font-medium">18</span></div>
-              <div className="pt-3 border-t border-gray-200 text-xs uppercase tracking-wide text-gray-500">Level Progress</div>
-              {(() => {
-                const lvl = levelFromElo(stockfishConfig.elo);
-                return (
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {LEVELS.map(lp => (
-                      <div
-                        key={lp.level}
-                        className={`p-2 rounded border text-xs font-semibold ${lp.level <= lvl ? 'opacity-100 border-green-200 bg-green-50 text-green-800' : 'opacity-50 border-gray-200 bg-gray-50 text-gray-600'}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span>Lv {lp.level}</span>
-                          <span>{lp.animalName}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
             </div>
             <div className="mt-3 text-right">
               <button

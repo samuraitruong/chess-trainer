@@ -10,9 +10,11 @@ import MaterialTracker from '@/components/MaterialTracker';
 
 interface SimpleChessBoardProps {
   showMoveIndicators?: boolean;
+  onNewGame?: () => void;
+  onReviewGame?: () => void;
 }
 
-export default function SimpleChessBoard({ showMoveIndicators = true }: SimpleChessBoardProps) {
+export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame, onReviewGame }: SimpleChessBoardProps) {
   const { gameState, makeMove, stockfishConfig, playerStats } = useDatabase();
   const [chess] = useState(() => new Chess());
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export default function SimpleChessBoard({ showMoveIndicators = true }: SimpleCh
   // Handle AI moves when it's the AI's turn
   // AI move logic using Stockfish
   useEffect(() => {
-    if (!gameState.isPlayerTurn && !gameState.isGameOver && gameState.moves.length > 0 && stockfishReady) {
+    if (!gameState.isPlayerTurn && !gameState.isGameOver && stockfishReady) {
       console.log('AI turn detected, using Stockfish with ELO:', stockfishConfig.elo);
       
       // Small delay to prevent layout flash
@@ -89,10 +91,10 @@ export default function SimpleChessBoard({ showMoveIndicators = true }: SimpleCh
       }, 100);
 
       return () => clearTimeout(timeoutId);
-    } else if (!gameState.isPlayerTurn && !gameState.isGameOver && gameState.moves.length > 0 && !stockfishReady) {
+    } else if (!gameState.isPlayerTurn && !gameState.isGameOver && !stockfishReady) {
       console.log('Waiting for Stockfish to be ready...');
     }
-  }, [gameState.isPlayerTurn, gameState.isGameOver, gameState.moves.length, stockfishReady, stockfishConfig, getAIMove, makeMove]);
+  }, [gameState.isPlayerTurn, gameState.isGameOver, stockfishReady, stockfishConfig, getAIMove, makeMove]);
 
   const onDrop = useCallback(({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }) => {
     console.log('onDrop called:', sourceSquare, 'to', targetSquare);
@@ -268,10 +270,9 @@ export default function SimpleChessBoard({ showMoveIndicators = true }: SimpleCh
   return (
     <div className="w-full max-w-2xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg p-4">
-        {/* AI material (top, no border) */}
-       
+        {/* AI material (top, no border) - Always AI on top */}
         <div className="mb-2">
-          <MaterialTracker side="black" noBorder />
+          <MaterialTracker side={gameState.playerColor === 'white' ? 'black' : 'white'} noBorder />
         </div>
         <Chessboard
           options={{
@@ -279,7 +280,7 @@ export default function SimpleChessBoard({ showMoveIndicators = true }: SimpleCh
             onPieceDrop: onDrop,
             onPieceDrag: onDragStart,
             onSquareClick: onSquareClick,
-            boardOrientation: 'white',
+            boardOrientation: gameState.playerColor,
             allowDragging: gameState.isPlayerTurn,
             showNotation: true,
             squareStyles: {
@@ -303,70 +304,182 @@ export default function SimpleChessBoard({ showMoveIndicators = true }: SimpleCh
             },
           }}
         />
-        {/* Player material (bottom) */}
+        {/* Player material (bottom) - Always Player on bottom */}
         <div className="mt-2">
-          <MaterialTracker side="white" noBorder/>
+          <MaterialTracker side={gameState.playerColor} noBorder/>
         </div>
         
+        {/* Game Over Modal - Kid Friendly Design */}
         {gameState.isGameOver && (
-          <div className="mt-4 text-center">
-            <div className={`px-4 py-3 rounded ${
-              gameState.result === 'white' 
-                ? 'bg-green-100 border border-green-400 text-green-700'
-                : gameState.result === 'black'
-                ? 'bg-red-100 border border-red-400 text-red-700'
-                : 'bg-yellow-100 border border-yellow-400 text-yellow-700'
-            }`}>
-              <strong>Game Over!</strong>
-              <p>
-                {gameState.result === 'white' && 'You won! 🎉'}
-                {gameState.result === 'black' && 'AI won! 🤖'}
-                {gameState.result === 'draw' && "It's a draw! 🤝"}
-              </p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-blue-900/80 to-indigo-900/80 backdrop-blur-sm"
+              onClick={(e) => {
+                // Only close if clicking the backdrop, not the modal content
+                if (e.target === e.currentTarget) {
+                  if (onNewGame) {
+                    onNewGame();
+                  }
+                }
+              }}
+            />
+            <div 
+              className="relative bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 rounded-3xl shadow-2xl w-full max-w-lg border-4 border-yellow-300 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
               
+              {/* Header with Fun Animation */}
+              <div className="text-center pt-6 pb-4 relative">
+                {/* Close Button - positioned in top-right of header */}
+                <button
+                  onClick={onNewGame}
+                  className="absolute top-2 right-2 w-8 h-8 bg-red-400 hover:bg-red-500 text-white rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg z-10"
+                  aria-label="Close modal"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <div className="text-3xl mb-2 animate-bounce mt-4">
+                  {gameState.result === gameState.playerColor && '🏆'}
+                  {gameState.result !== 'draw' && gameState.result !== gameState.playerColor && '😢'}
+                  {gameState.result === 'draw' && '🤝'}
+                </div>
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                  {gameState.result === 'draw' && "It's a Draw!"}
+                  {gameState.result === gameState.playerColor && 'Amazing Win!'}
+                  {gameState.result !== 'draw' && gameState.result !== gameState.playerColor && 'Good Try!'}
+                </h2>
+                <p className="text-lg text-gray-600">
+                  {gameState.result === 'draw' && "You both played great! 🤝"}
+                  {gameState.result === gameState.playerColor && 'You are getting stronger! 💪'}
+                  {gameState.result !== 'draw' && gameState.result !== gameState.playerColor && 'Keep practicing! 🌟'}
+                </p>
+              </div>
+
+              {/* Stats Card */}
               {gameResult && (
-                <div className="mt-3 space-y-1">
-                  {gameState.result === 'white' && (
-                    <div className="text-sm">
-                      <p className="text-green-600 font-semibold">
-                        ELO: +{gameResult.eloChange} points
-                      </p>
-                      <p className="text-green-600">
-                        Win Streak: {gameResult.winStreak} {gameResult.winStreak === 1 ? 'game' : 'games'}
-                      </p>
-                      {gameResult.winStreak >= 2 && (
-                        <p className="text-green-500 text-xs">
-                          {gameResult.winStreak >= 4 && '🔥 4+ streak bonus!'}
-                          {gameResult.winStreak === 3 && '⚡ 3 streak bonus!'}
-                          {gameResult.winStreak === 2 && '✨ 2 streak bonus!'}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  
-                  {gameState.result === 'black' && (
-                    <div className="text-sm">
-                      <p className="text-red-600 font-semibold">
-                        ELO: {gameResult.eloChange} points
-                      </p>
-                      <p className="text-red-600">
-                        Win Streak: Reset to 0
-                      </p>
-                    </div>
-                  )}
-                  
-                  {gameState.result === 'draw' && (
-                    <div className="text-sm">
-                      <p className="text-yellow-600">
-                        ELO: No change
-                      </p>
-                      <p className="text-yellow-600">
-                        Win Streak: Reset to 0
-                      </p>
-                    </div>
-                  )}
+                <div className="mx-6 mb-6">
+                  <div className={`rounded-2xl p-4 border-2 ${
+                    gameState.result === gameState.playerColor
+                      ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-green-300'
+                      : gameState.result !== 'draw'
+                      ? 'bg-gradient-to-r from-blue-100 to-cyan-100 border-blue-300'
+                      : 'bg-gradient-to-r from-yellow-100 to-orange-100 border-yellow-300'
+                  }`}>
+                    
+                    {gameState.result === gameState.playerColor && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-3">
+                          <span className="text-2xl mr-2">⭐</span>
+                          <span className="text-xl font-bold text-green-700">
+                            +{gameResult.eloChange} Points!
+                          </span>
+                          <span className="text-2xl ml-2">⭐</span>
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-3 mb-3">
+                          <p className="text-lg font-bold text-green-800">
+                            New Level: {playerStats?.current_elo || 0}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-center space-x-2">
+                          <span className="text-lg">🔥</span>
+                          <span className="text-green-700 font-semibold">
+                            {gameResult.winStreak} Win{gameResult.winStreak !== 1 ? 's' : ''} in a Row!
+                          </span>
+                          <span className="text-lg">🔥</span>
+                        </div>
+                        {gameResult.winStreak >= 2 && (
+                          <div className="mt-2 text-sm font-bold text-green-600">
+                            {gameResult.winStreak >= 4 && '🌟 SUPER STREAK! 🌟'}
+                            {gameResult.winStreak === 3 && '⚡ 3 STREAK BONUS! ⚡'}
+                            {gameResult.winStreak === 2 && '✨ 2 STREAK BONUS! ✨'}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {gameState.result !== 'draw' && gameState.result !== gameState.playerColor && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-3">
+                          <span className="text-2xl mr-2">💪</span>
+                          <span className="text-xl font-bold text-blue-700">
+                            {gameResult.eloChange > 0 ? '+' : ''}{gameResult.eloChange} Points
+                          </span>
+                          <span className="text-2xl ml-2">💪</span>
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-3 mb-3">
+                          <p className="text-lg font-bold text-blue-800">
+                            Current Level: {playerStats?.current_elo || 0}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-center space-x-2">
+                          <span className="text-lg">🎯</span>
+                          <span className="text-blue-700 font-semibold">
+                            Ready for a comeback!
+                          </span>
+                          <span className="text-lg">🎯</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {gameState.result === 'draw' && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-3">
+                          <span className="text-2xl mr-2">🤝</span>
+                          <span className="text-xl font-bold text-yellow-700">
+                            No Change
+                          </span>
+                          <span className="text-2xl ml-2">🤝</span>
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-3 mb-3">
+                          <p className="text-lg font-bold text-yellow-800">
+                            Current Level: {playerStats?.current_elo || 0}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-center space-x-2">
+                          <span className="text-lg">🎨</span>
+                          <span className="text-yellow-700 font-semibold">
+                            Great game! Keep playing!
+                          </span>
+                          <span className="text-lg">🎨</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+              
+              {/* Action Buttons */}
+              <div className="px-6 pb-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => {
+                      console.log('New Game button clicked');
+                      if (onNewGame) {
+                        onNewGame();
+                      }
+                    }}
+                    className="group bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl transform active:scale-95"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <span className="text-xl">♟️</span>
+                      <span>New Game</span>
+                      <span className="text-xl">♟️</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={onReviewGame}
+                    className="group bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl transform active:scale-95"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <span className="text-xl">🔍</span>
+                      <span>Review</span>
+                      <span className="text-xl">🔍</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -8,22 +8,72 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useStockfish } from '@/hooks/useStockfish';
 // import { MoveAnalysis } from '@/types/chess';
 
+// Best Move Icon Component
+const BestMoveIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg 
+    className={className} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle cx="12" cy="12" r="10" fill="#10b981" stroke="#059669" strokeWidth="2"/>
+    <path 
+      d="M8 12l2 2 4-4" 
+      stroke="white" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <text 
+      x="12" 
+      y="16" 
+      fontSize="8" 
+      fill="white" 
+      textAnchor="middle" 
+      fontWeight="bold"
+    >
+      BEST
+    </text>
+  </svg>
+);
+
 interface GameReviewProps {
   isOpen: boolean;
   onClose: () => void;
-  game?: { moves: string[]; pgn?: string; result?: string } | null;
+  game?: { 
+    moves: string[]; 
+    pgn?: string; 
+    result?: string;
+    playerColor?: 'white' | 'black';
+    aiLevel?: number;
+  } | null;
 }
 
 export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
   const { gameState } = useDatabase();
   const { analyzePosition } = useStockfish();
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
-  const [currentFen, setCurrentFen] = useState(gameState.fen);
+  const [currentFen, setCurrentFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
   
   // Debug: Track when currentFen changes
   useEffect(() => {
     console.log('🔄 currentFen state changed to:', currentFen);
   }, [currentFen]);
+
+  // Reset to starting position when review opens
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentMoveIndex(0);
+      setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+      setLastMoveArrow(null);
+      setBestMoveArrow(null);
+      setPositionEvaluation(0);
+      setMateIn(null);
+      setMateFor(null);
+      setPrincipalVariation([]);
+      setCompletePvLines([]);
+    }
+  }, [isOpen]);
   const [positionEvaluation, setPositionEvaluation] = useState<number>(0);
   const [mateIn, setMateIn] = useState<number | null>(null);
   const [mateFor, setMateFor] = useState<'white' | 'black' | null>(null);
@@ -353,45 +403,59 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
         <div className="w-2/3 p-4 flex flex-col overflow-y-auto">
             {/* Top Section - Evaluation Bar and Chessboard */}
             <div className="flex items-center justify-center space-x-4">
-              {/* Vertical Evaluation Bar - Same height as board */}
+              {/* Vertical Evaluation Bar - Rotated based on player color */}
               <div className="flex flex-col items-center space-y-2">
                 <div className="w-6 h-[500px] bg-gray-200 overflow-hidden relative flex flex-col">
-                  {/* Black section (top) */}
-                  <div 
-                    className="w-full bg-gray-700 transition-all duration-500"
-                    style={{ 
-                      height: `${(() => {
-                        // If mate detected, snap bar fully to advantaged side
-                        if (mateIn != null && mateFor) {
-                          return mateFor === 'black' ? 100 : 0;
-                        }
-                        return Math.max(0, Math.min(100, 50 - (positionEvaluation / 100) * 6.25));
-                      })()}%`
-                    }}
-                  />
-                  {/* White section (bottom) */}
-                  <div 
-                    className="w-full bg-gray-300 transition-all duration-500"
-                    style={{ 
-                      height: `${(() => {
-                        if (mateIn != null && mateFor) {
-                          return mateFor === 'white' ? 100 : 0;
-                        }
-                        return Math.max(0, Math.min(100, 50 + (positionEvaluation / 100) * 6.25));
-                      })()}%`
-                    }}
-                  />
-                  {/* Evaluation text overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-xs font-bold text-white drop-shadow transform -rotate-90 px-1 py-0.5 bg-black/50 rounded">
-                      {formatEvaluation(positionEvaluation)}
-                    </span>
-                  </div>
+                  {(() => {
+                    const playerColor = reviewGame.playerColor || 'white';
+                    const isPlayerWhite = playerColor === 'white';
+                    
+                    // Calculate evaluation from player's perspective
+                    const playerEvaluation = isPlayerWhite ? positionEvaluation : -positionEvaluation;
+                    
+                    return (
+                      <>
+                        {/* Black section (top) */}
+                        <div 
+                          className="w-full bg-gray-700 transition-all duration-500"
+                          style={{ 
+                            height: `${(() => {
+                              // If mate detected, snap bar fully to advantaged side
+                              if (mateIn != null && mateFor) {
+                                const mateForPlayer = (mateFor === playerColor);
+                                return mateForPlayer ? 0 : 100;
+                              }
+                              return Math.max(0, Math.min(100, 50 - (playerEvaluation / 100) * 6.25));
+                            })()}%`
+                          }}
+                        />
+                        {/* White section (bottom) */}
+                        <div 
+                          className="w-full bg-gray-300 transition-all duration-500"
+                          style={{ 
+                            height: `${(() => {
+                              if (mateIn != null && mateFor) {
+                                const mateForPlayer = (mateFor === playerColor);
+                                return mateForPlayer ? 100 : 0;
+                              }
+                              return Math.max(0, Math.min(100, 50 + (playerEvaluation / 100) * 6.25));
+                            })()}%`
+                          }}
+                        />
+                        {/* Evaluation text overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="text-xs font-bold text-white drop-shadow transform -rotate-90 px-1 py-0.5 bg-black/50 rounded">
+                            {formatEvaluation(playerEvaluation)}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
               {/* Chessboard */}
-              <div className="w-[500px] h-[500px]">
+              <div className="w-[500px] h-[500px] relative">
                 {(() => {
                   console.log('🎨 Rendering Chessboard with FEN:', currentFen, 'Move Index:', currentMoveIndex);
                   // Validate FEN format
@@ -407,15 +471,32 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
                 <Chessboard
                   options={{
                     position: currentFen,
-                    boardOrientation: 'white',
+                    boardOrientation: reviewGame.playerColor || 'white',
                     allowDragging: false,
                     showNotation: true,
                     arrows: [
                       ...(lastMoveArrow ? [{ startSquare: lastMoveArrow[0], endSquare: lastMoveArrow[1], color: '#f59e0b' }] : []),
-                      ...(bestMoveArrow ? [{ startSquare: bestMoveArrow[0], endSquare: bestMoveArrow[1], color: '#10b981' }] : []),
+                      ...(bestMoveArrow ? [{ 
+                        startSquare: bestMoveArrow[0], 
+                        endSquare: bestMoveArrow[1], 
+                        color: '#10b981'
+                      }] : []),
                     ],
                   }}
                 />
+                {/* Best Move Icon Overlay */}
+                {bestMoveArrow && (
+                  <div 
+                    className="absolute pointer-events-none z-10"
+                    style={{
+                      left: `${((bestMoveArrow[1].charCodeAt(0) - 97) * 12.5) + 6.25}%`,
+                      top: `${((8 - parseInt(bestMoveArrow[1][1])) * 12.5) + 6.25}%`,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <BestMoveIcon className="w-6 h-6 drop-shadow-lg" />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -469,11 +550,16 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
                 </div>
               ) : (
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm font-medium text-gray-700 mb-3">Engine moves:</div>
+                  <div className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                    <span>Engine moves:</span>
+                    <BestMoveIcon className="w-5 h-5" />
+                    <span className="text-xs text-green-600 font-medium">Best move</span>
+                  </div>
                   <div className="space-y-2">
                     {completePvLines.length > 0 ? (
                       completePvLines.map((pvLine, index) => (
                         <div key={index} className="flex items-center space-x-2">
+                          {index === 0 && <BestMoveIcon className="w-4 h-4" />}
                           <span className="text-xs font-mono text-gray-600 min-w-[60px]">[{formatEvaluation(pvLine.evaluation)}]</span>
                           <div className="flex flex-wrap gap-1">
                             {pvLine.moves.slice(0, 6).map((move, moveIndex) => (

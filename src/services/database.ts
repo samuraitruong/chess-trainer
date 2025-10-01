@@ -14,6 +14,8 @@ export interface GameRecord {
   elo_after: number;
   win_streak: number;
   loss_streak: number;
+  player_color: 'white' | 'black';
+  ai_level: number;
 }
 
 export interface PlayerStatsRecord {

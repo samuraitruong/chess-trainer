@@ -32,6 +32,8 @@ export interface GameState {
   isPlayerTurn: boolean;
   isThinking: boolean;
   currentElo: number;
+  playerColor: 'white' | 'black';
+  aiLevel: number;
 }
 
 export interface MoveAnalysis {

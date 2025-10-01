@@ -14,6 +14,15 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
   const [showMoveIndicators, setShowMoveIndicators] = React.useState(true);
   const [showLevelModal, setShowLevelModal] = React.useState(false);
 
+  // Calculate AI level based on player stats
+  const currentElo = playerStats?.current_elo || 100;
+  const minElo = 50, maxElo = 2000;
+  const fraction = Math.max(0, Math.min(1, (currentElo - minElo) / (maxElo - minElo)));
+  const calculatedAiLevel = 1 + Math.floor(fraction * 19);
+  const currentAnimal = LEVELS[calculatedAiLevel - 1]?.animalName || 'Chick';
+
+
+
   const handleShowMoveIndicatorsChange = (show: boolean) => {
     setShowMoveIndicators(show);
     onShowMoveIndicatorsChange?.(show);
@@ -26,6 +35,7 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
   const handleReset = () => {
     resetGame();
   };
+
 
 
   return (
@@ -83,40 +93,32 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
           </div>
         </div>
 
-        {/* Game Status */}
+        {/* AI Avatar */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800">Game Status</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Turn:</span>
-              <span className={`text-sm font-medium ${gameState.isPlayerTurn ? 'text-green-600' : 'text-blue-600'}`}>
-                {gameState.isPlayerTurn ? 'Your Turn' : 'AI Turn'}
-              </span>
+          <h3 className="text-lg font-semibold text-gray-800">Your Opponent</h3>
+          <div className="flex flex-col items-center space-y-3">
+            <div className="relative">
+              <img 
+                src={`/ai/set1/${currentAnimal}.png`}
+                alt="AI Avatar"
+                className="w-24 h-24 object-cover rounded-full border-4 border-blue-300 shadow-lg"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              {gameState.isThinking && (
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse">
+                  <span className="text-xs">🤔</span>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Moves:</span>
-              <span className="text-sm font-medium">{gameState.moves.length}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Status:</span>
-              <span className={`text-sm font-medium ${
-                gameState.isGameOver 
-                  ? gameState.result === 'white' 
-                    ? 'text-green-600' 
-                    : gameState.result === 'black' 
-                    ? 'text-red-600' 
-                    : 'text-yellow-600'
-                  : 'text-gray-600'
-              }`}>
-                {gameState.isGameOver 
-                  ? gameState.result === 'white' 
-                    ? 'You Won!' 
-                    : gameState.result === 'black' 
-                    ? 'AI Won!' 
-                    : 'Draw!'
-                  : 'Playing'
-                }
-              </span>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-gray-800">
+                Level {calculatedAiLevel}
+              </p>
+              <p className="text-xs text-gray-600">
+                {gameState.isPlayerTurn ? 'Your Turn' : 'AI Thinking...'}
+              </p>
             </div>
           </div>
         </div>
@@ -167,11 +169,29 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
                       key={lp.level}
                       className={`p-2 rounded border text-xs font-semibold ${lp.level <= currentLevel ? 'opacity-100 border-green-200 bg-green-50 text-green-800' : 'opacity-50 border-gray-200 bg-gray-50 text-gray-600'}`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span>Lv {lp.level}</span>
-                        <span>{lp.animalName}</span>
+                      <div className="flex items-start justify-between">
+                        <div className="flex flex-col">
+                          <span>Lv {lp.level}</span>
+                          <div className="text-[10px] text-gray-500">
+                            {lp.description.split(' (~')[0]}
+                          </div>
+                          <div className="text-[9px] text-gray-400">
+                            {lp.description.match(/\(~(\d+) Elo\)/)?.[1] ? `~${lp.description.match(/\(~(\d+) Elo\)/)?.[1]} Elo` : ''}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <img 
+                            src={`/ai/set1/${lp.animalName}.png`}
+                            alt={lp.animalName}
+                            className="w-16 h-16 object-cover rounded-full border-2 border-gray-300"
+                            onError={(e) => {
+                              // Hide image if it fails to load
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          <span className="text-xs">{lp.animalName}</span>
+                        </div>
                       </div>
-                      <div className="mt-1 text-[10px] text-gray-500">{lp.description}</div>
                     </div>
                   ))}
                 </div>

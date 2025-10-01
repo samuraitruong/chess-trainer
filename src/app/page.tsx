@@ -87,7 +87,7 @@ function PlayUI() {
   const [showReview, setShowReview] = useState(false);
   const [isControlsCollapsed, setIsControlsCollapsed] = useState(false);
   const [showMoveIndicators, setShowMoveIndicators] = useState(true);
-  const { gameState } = useDatabase();
+  const { gameState, startNewGame } = useDatabase();
 
   return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -125,7 +125,11 @@ function PlayUI() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Chess Board */}
               <div className="lg:col-span-2">
-                  <SimpleChessBoard showMoveIndicators={showMoveIndicators} />
+                  <SimpleChessBoard 
+                    showMoveIndicators={showMoveIndicators}
+                    onNewGame={startNewGame}
+                    onReviewGame={() => setShowReview(true)}
+                  />
               </div>
               
               {/* Move Panel */}
@@ -133,25 +137,20 @@ function PlayUI() {
                 <MovePanel />
               </div>
             </div>
-            
-            {/* Review Button - only when game finished */}
-            {gameState?.isGameOver && (
-              <div className="text-center">
-                <button
-                  onClick={() => setShowReview(true)}
-                  className="bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-                >
-                  Review Game
-                </button>
-              </div>
-            )}
           </div>
         </main>
 
         {/* Game Review Modal */}
         <GameReview 
           isOpen={showReview} 
-          onClose={() => setShowReview(false)} 
+          onClose={() => setShowReview(false)}
+          game={{
+            moves: gameState.moves,
+            pgn: undefined, // PGN will be generated in GameReview if needed
+            result: gameState.result || undefined,
+            playerColor: gameState.playerColor,
+            aiLevel: gameState.aiLevel,
+          }}
         />
         
         

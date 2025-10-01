@@ -11,30 +11,30 @@ export interface LevelProfile {
 
 // Levels 1-12: realistic mistakes; 13-20: UCI_Elo limited
 export const LEVELS: LevelProfile[] = [
-    // --- Fun beginner bots (random + mistakes) ---
+    // --- More challenging beginner bots ---
     { level: 1, description: 'Beginner I (~200 Elo)', animalName: 'Chick',
-      play: { kind: 'mistake', multipv: 12, bestProb: 0.10, secondProb: 0.20, thirdProb: 0.20, randomProb: 0.50, depthCap: 1, timeMinMs: 50, timeMaxMs: 150 } },
+      play: { kind: 'mistake', multipv: 12, bestProb: 0.30, secondProb: 0.25, thirdProb: 0.25, randomProb: 0.20, depthCap: 2, timeMinMs: 200, timeMaxMs: 400 } },
   
     { level: 2, description: 'Beginner II (~300 Elo)', animalName: 'Mouse',
-      play: { kind: 'mistake', multipv: 12, bestProb: 0.20, secondProb: 0.30, thirdProb: 0.30, randomProb: 0.20, depthCap: 1, timeMinMs: 75, timeMaxMs: 175 } },
+      play: { kind: 'mistake', multipv: 12, bestProb: 0.40, secondProb: 0.30, thirdProb: 0.20, randomProb: 0.10, depthCap: 2, timeMinMs: 300, timeMaxMs: 500 } },
   
     { level: 3, description: 'Beginner III (~400 Elo)', animalName: 'Rabbit',
-      play: { kind: 'mistake', multipv: 12, bestProb: 0.30, secondProb: 0.40, thirdProb: 0.20, randomProb: 0.10, depthCap: 1, timeMinMs: 100, timeMaxMs: 200 } },
+      play: { kind: 'mistake', multipv: 12, bestProb: 0.50, secondProb: 0.30, thirdProb: 0.15, randomProb: 0.05, depthCap: 3, timeMinMs: 400, timeMaxMs: 600 } },
   
     { level: 4, description: 'Beginner IV (~500 Elo)', animalName: 'Fox',
-      play: { kind: 'mistake', multipv: 12, bestProb: 0.40, secondProb: 0.40, thirdProb: 0.15, randomProb: 0.05, depthCap: 1, timeMinMs: 150, timeMaxMs: 250 } },
+      play: { kind: 'mistake', multipv: 12, bestProb: 0.60, secondProb: 0.25, thirdProb: 0.12, randomProb: 0.03, depthCap: 3, timeMinMs: 500, timeMaxMs: 700 } },
   
     { level: 5, description: 'Novice I (~600 Elo)', animalName: 'Dog',
-      play: { kind: 'mistake', multipv: 10, bestProb: 0.50, secondProb: 0.35, thirdProb: 0.12, randomProb: 0.03, depthCap: 1, timeMinMs: 200, timeMaxMs: 300 } },
+      play: { kind: 'mistake', multipv: 10, bestProb: 0.70, secondProb: 0.20, thirdProb: 0.08, randomProb: 0.02, depthCap: 4, timeMinMs: 600, timeMaxMs: 800 } },
   
     { level: 6, description: 'Novice II (~700 Elo)', animalName: 'Goat',
-      play: { kind: 'mistake', multipv: 10, bestProb: 0.60, secondProb: 0.30, thirdProb: 0.08, randomProb: 0.02, depthCap: 2, timeMinMs: 250, timeMaxMs: 350 } },
+      play: { kind: 'mistake', multipv: 10, bestProb: 0.75, secondProb: 0.18, thirdProb: 0.06, randomProb: 0.01, depthCap: 4, timeMinMs: 700, timeMaxMs: 900 } },
   
     { level: 7, description: 'Intermediate I (~800 Elo)', animalName: 'Sheep',
-      play: { kind: 'mistake', multipv: 8, bestProb: 0.65, secondProb: 0.28, thirdProb: 0.06, randomProb: 0.01, depthCap: 2, timeMinMs: 300, timeMaxMs: 400 } },
+      play: { kind: 'mistake', multipv: 8, bestProb: 0.80, secondProb: 0.15, thirdProb: 0.04, randomProb: 0.01, depthCap: 5, timeMinMs: 800, timeMaxMs: 1000 } },
   
     { level: 8, description: 'Intermediate II (~900 Elo)', animalName: 'Pig',
-      play: { kind: 'mistake', multipv: 8, bestProb: 0.70, secondProb: 0.25, thirdProb: 0.04, randomProb: 0.01, depthCap: 2, timeMinMs: 350, timeMaxMs: 500 } },
+      play: { kind: 'mistake', multipv: 8, bestProb: 0.85, secondProb: 0.12, thirdProb: 0.03, randomProb: 0, depthCap: 5, timeMinMs: 900, timeMaxMs: 1100 } },
   
     { level: 9, description: 'Intermediate III (~1000 Elo)', animalName: 'Deer',
       play: { kind: 'mistake', multipv: 8, bestProb: 0.75, secondProb: 0.22, thirdProb: 0.03, randomProb: 0.00, depthCap: 2, timeMinMs: 400, timeMaxMs: 600 } },

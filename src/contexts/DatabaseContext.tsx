@@ -32,6 +32,8 @@ const initialState: GameState = {
   isPlayerTurn: true,
   isThinking: false,
   currentElo: 100,
+  playerColor: 'white',
+  aiLevel: 1,
 };
 
 const initialStockfishConfig: StockfishConfig = {
@@ -56,10 +58,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         // Test the database to ensure it's working
         const testResult = await databaseService.testDatabase();
         if (testResult) {
+          console.log('Database test passed, setting ready and loading stats');
           setIsDatabaseReady(true);
           await loadPlayerStats();
           console.log('Database initialized and tested successfully');
         } else {
+          console.log('Database test failed');
           throw new Error('Database test failed');
         }
       } catch (error) {
@@ -76,15 +80,45 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   // Update stockfishConfig when playerStats.currentElo changes
   useEffect(() => {
+    console.log('=== Player Stats Effect Triggered ===');
+    console.log('playerStats:', playerStats);
+    console.log('playerStats?.current_elo:', playerStats?.current_elo);
+    
     if (playerStats) {
       setStockfishConfig(prev => ({ ...prev, elo: playerStats.current_elo }));
       console.log('Updated stockfishConfig.elo to:', playerStats.current_elo);
+      
+      // Auto-update game state when player stats are loaded
+      console.log('Player stats loaded, updating game state...');
+      const currentElo = playerStats.current_elo;
+      const minElo = 50, maxElo = 2000;
+      const fraction = Math.max(0, Math.min(1, (currentElo - minElo) / (maxElo - minElo)));
+      const aiLevel = 1 + Math.floor(fraction * 19);
+      
+      console.log('Auto-updating game state:', {
+        currentElo,
+        aiLevel,
+        fraction
+      });
+      
+      setGameState(prev => {
+        console.log('Previous game state:', prev);
+        const newState = {
+          ...prev,
+          currentElo,
+          aiLevel
+        };
+        console.log('New game state:', newState);
+        return newState;
+      });
     }
   }, [playerStats?.current_elo]);
 
   const loadPlayerStats = async () => {
+    console.log('=== loadPlayerStats called ===');
     try {
       const stats = await databaseService.getPlayerStats();
+      console.log('Database returned stats:', stats);
       setPlayerStats(stats);
       console.log('Loaded player stats from database:', stats);
     } catch (error) {
@@ -178,8 +212,18 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           }));
           
           // Update stats when game ends
+          // Determine win/loss from player's perspective
+          let playerResult: 'win' | 'loss' | 'draw';
+          if (gameResult === 'draw') {
+            playerResult = 'draw';
+          } else if (gameResult === gameState.playerColor) {
+            playerResult = 'win'; // Player won
+          } else {
+            playerResult = 'loss'; // AI won
+          }
+          
           const gameResultForStats: GameResult = {
-            result: gameResult === 'white' ? 'win' : gameResult === 'black' ? 'loss' : 'draw',
+            result: playerResult,
             moves: newMoves,
             pgn: chess.pgn(),
             accuracy: 85, // Default accuracy, could be calculated
@@ -208,10 +252,54 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   };
 
   const startNewGame = () => {
-    setGameState({
-      ...initialState,
-      currentElo: playerStats?.current_elo || 100,
+    console.log('=== startNewGame called ===');
+    console.log('playerStats:', playerStats);
+    console.log('playerStats?.current_elo:', playerStats?.current_elo);
+    console.log('gameState before:', gameState);
+    
+    // Randomly assign player color
+    const playerColor: 'white' | 'black' = Math.random() < 0.5 ? 'white' : 'black';
+    console.log('playerColor:', playerColor);
+    
+    // Calculate AI level based on current ELO
+    const currentElo = playerStats?.current_elo || 100;
+    console.log('currentElo:', currentElo);
+    const minElo = 50, maxElo = 2000;
+    console.log('minElo:', minElo, 'maxElo:', maxElo);
+    const fraction = Math.max(0, Math.min(1, (currentElo - minElo) / (maxElo - minElo)));
+    console.log('fraction calculation:', `(${currentElo} - ${minElo}) / (${maxElo} - ${minElo}) = ${(currentElo - minElo)} / ${(maxElo - minElo)} = ${fraction}`);
+    const aiLevel = 1 + Math.floor(fraction * 19);
+    console.log('aiLevel calculation:', `1 + Math.floor(${fraction} * 19) = 1 + Math.floor(${fraction * 19}) = 1 + ${Math.floor(fraction * 19)} = ${aiLevel}`);
+    
+    console.log('AI Level Calculation:', {
+      currentElo,
+      minElo,
+      maxElo,
+      fraction,
+      aiLevel,
+      calculation: `(${currentElo} - ${minElo}) / (${maxElo} - ${minElo}) = ${currentElo - minElo} / ${maxElo - minElo} = ${fraction}`,
+      levelCalc: `1 + floor(${fraction} * 19) = 1 + floor(${fraction * 19}) = 1 + ${Math.floor(fraction * 19)} = ${aiLevel}`
     });
+    
+    const newGameState = {
+      ...initialState,
+      currentElo,
+      playerColor,
+      aiLevel,
+      isPlayerTurn: playerColor === 'white', // White always starts
+    };
+    
+    console.log('Setting new game state:', newGameState);
+    console.log('Verifying newGameState.aiLevel:', newGameState.aiLevel);
+    console.log('Verifying newGameState.currentElo:', newGameState.currentElo);
+    setGameState(newGameState);
+    
+    // Check if state was actually updated
+    setTimeout(() => {
+      console.log('=== After setGameState ===');
+      console.log('gameState after timeout:', gameState);
+      console.log('gameState.aiLevel after timeout:', gameState.aiLevel);
+    }, 100);
   };
 
   const updateStats = async (result: GameResult) => {
@@ -293,6 +381,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           elo_after: newStats.current_elo,
           win_streak: newStats.win_streak,
           loss_streak: newStats.loss_streak,
+          player_color: gameState.playerColor,
+          ai_level: gameState.aiLevel,
         };
         
         console.log('💾 Saving game record to database:', gameRecord);
