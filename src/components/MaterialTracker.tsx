@@ -238,9 +238,33 @@ export default function MaterialTracker({ side, noBorder = false }: { side: 'whi
       {side === 'black' && showConfig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowConfig(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-gray-900">AI Setup</h3>
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl p-4">
+            {/* Animal Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <img 
+                    src={aiImage || '/ai/set1/Chick.png'} 
+                    alt="AI Avatar"
+                    className="w-12 h-12 object-cover rounded-full border-2 border-blue-300 shadow-lg"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    {(() => {
+                      const lvl = levelFromElo(stockfishConfig.elo);
+                      const profile = getLevelProfile(lvl);
+                      return profile.animalName;
+                    })()}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Level {levelFromElo(stockfishConfig.elo)} • ELO {stockfishConfig.elo}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 className="text-gray-500 hover:text-gray-700"
@@ -250,30 +274,57 @@ export default function MaterialTracker({ side, noBorder = false }: { side: 'whi
                 ✕
               </button>
             </div>
-            <div className="space-y-2 text-sm text-gray-800">
-              <div className="flex items-center justify-between"><span className="text-gray-600">ELO</span><span className="font-medium">{stockfishConfig.elo}</span></div>
-              <div className="flex items-center justify-between"><span className="text-gray-600">Engine</span><span className="font-medium">Stockfish (WASM)</span></div>
-              <div className="pt-2 border-t border-gray-200 text-xs uppercase tracking-wide text-gray-500">Playing mode (AI move selection)</div>
-              <div className="flex items-center justify-between"><span className="text-gray-600">Mode</span><span className="font-medium">{derived.mode}</span></div>
-              <div className="flex items-center justify-between"><span className="text-gray-600">UCI_LimitStrength</span><span className="font-medium">{derived.uciLimitStrength ? 'ON' : 'OFF'}</span></div>
-              <div className="flex items-center justify-between"><span className="text-gray-600">MultiPV</span><span className="font-medium">{derived.multipv}</span></div>
-              <div className="flex items-center justify-between"><span className="text-gray-600">Depth</span><span className="font-medium">{derived.depth ?? 'auto'}</span></div>
-              <div className="flex items-center justify-between"><span className="text-gray-600">Time/Move</span><span className="font-medium">{derived.timeLabel}</span></div>
-              {derived.uciElo && (
-                <div className="flex items-center justify-between"><span className="text-gray-600">UCI_Elo</span><span className="font-medium">{derived.uciElo}</span></div>
-              )}
+            
+            {/* Slogan */}
+            <div className="mb-6 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 italic text-center">
+                &ldquo;{(() => {
+                  const lvl = levelFromElo(stockfishConfig.elo);
+                  const profile = getLevelProfile(lvl);
+                  return profile.slogan;
+                })()}&rdquo;
+              </p>
+            </div>
+            
+            {/* Technical Details in Grid Layout */}
+            <div className="space-y-4">
+              {/* Engine Configuration */}
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <h5 className="text-sm font-semibold text-blue-800 mb-2">Engine Configuration</h5>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-700 font-medium">Engine</span><span className="font-semibold text-gray-900">Stockfish (WASM)</span></div>
+                  <div className="flex justify-between"><span className="text-gray-700 font-medium">ELO</span><span className="font-semibold text-gray-900">{stockfishConfig.elo}</span></div>
+                </div>
+              </div>
+
+              {/* Playing Mode */}
+              <div className="bg-green-50 p-3 rounded-lg">
+                <h5 className="text-sm font-semibold text-green-800 mb-2">Playing Mode (AI Move Selection)</h5>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-700 font-medium">Mode</span><span className="font-semibold text-gray-900">{derived.mode}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-700 font-medium">UCI_LimitStrength</span><span className="font-semibold text-gray-900">{derived.uciLimitStrength ? 'ON' : 'OFF'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-700 font-medium">MultiPV</span><span className="font-semibold text-gray-900">{derived.multipv}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-700 font-medium">Depth</span><span className="font-semibold text-gray-900">{derived.depth ?? 'auto'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-700 font-medium">Time/Move</span><span className="font-semibold text-gray-900">{derived.timeLabel}</span></div>
+                  {derived.uciElo && (
+                    <div className="flex justify-between"><span className="text-gray-700 font-medium">UCI_Elo</span><span className="font-semibold text-gray-900">{derived.uciElo}</span></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Move Selection Probabilities (if applicable) */}
               {derived.probabilities && (
-                <>
-                  <div className="pt-2 border-t border-gray-200 text-xs uppercase tracking-wide text-gray-500">Move Selection Probabilities</div>
-                  <div className="flex items-center justify-between"><span className="text-gray-600">Best Move</span><span className="font-medium">{derived.probabilities.best}%</span></div>
-                  <div className="flex items-center justify-between"><span className="text-gray-600">2nd Best</span><span className="font-medium">{derived.probabilities.second}%</span></div>
-                  <div className="flex items-center justify-between"><span className="text-gray-600">3rd Best</span><span className="font-medium">{derived.probabilities.third}%</span></div>
-                  <div className="flex items-center justify-between"><span className="text-gray-600">Random</span><span className="font-medium">{derived.probabilities.random}%</span></div>
-                </>
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <h5 className="text-sm font-semibold text-yellow-800 mb-2">Move Selection Probabilities</h5>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex justify-between"><span className="text-gray-700 font-medium">Best Move</span><span className="font-semibold text-gray-900">{derived.probabilities.best}%</span></div>
+                    <div className="flex justify-between"><span className="text-gray-700 font-medium">2nd Best</span><span className="font-semibold text-gray-900">{derived.probabilities.second}%</span></div>
+                    <div className="flex justify-between"><span className="text-gray-700 font-medium">3rd Best</span><span className="font-semibold text-gray-900">{derived.probabilities.third}%</span></div>
+                    <div className="flex justify-between"><span className="text-gray-700 font-medium">Random</span><span className="font-semibold text-gray-900">{derived.probabilities.random}%</span></div>
+                  </div>
+                </div>
               )}
-              <div className="pt-2 border-t border-gray-200 text-xs uppercase tracking-wide text-gray-500">Analysis mode (engine evaluation)</div>
-              <div className="flex items-center justify-between"><span className="text-gray-600">MultiPV</span><span className="font-medium">4</span></div>
-              <div className="flex items-center justify-between"><span className="text-gray-600">Depth</span><span className="font-medium">18</span></div>
+
             </div>
             <div className="mt-3 text-right">
               <button
