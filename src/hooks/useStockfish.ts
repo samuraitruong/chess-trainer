@@ -134,8 +134,31 @@ export function useStockfish() {
           if (move && move !== '(none)') {
             console.log(`🎯 Best move found: ${move} (ELO: ${config.elo})`);
             
-            // Sophisticated mistake system using ELO-based move selection
+            // Convert UCI move to SAN notation
             let finalMove = move;
+            try {
+              const chess = new Chess(fen);
+              const uciMove = move;
+              const from = uciMove.substring(0, 2);
+              const to = uciMove.substring(2, 4);
+              const promotion = uciMove.length === 5 ? uciMove[4] : undefined;
+              
+              const chessMove = chess.move({
+                from,
+                to,
+                promotion: promotion as 'q' | 'r' | 'b' | 'n' | undefined,
+              });
+              
+              if (chessMove) {
+                finalMove = chessMove.san;
+                console.log(`🔄 UCI to SAN conversion: ${move} -> ${finalMove}`);
+              }
+            } catch (error) {
+              console.error('UCI to SAN conversion failed:', error);
+              // Fallback to original move
+            }
+            
+            // Sophisticated mistake system using ELO-based move selection
             if (profile.play.kind === 'mistake') {
               const probabilities = {
                 best: profile.play.bestProb,
@@ -145,7 +168,7 @@ export function useStockfish() {
               };
               const random = Math.random();
               if (random < probabilities.best) {
-                finalMove = move;
+                // Keep the converted SAN move
                 console.log(`🎯 Best move selected (lvl: ${lvl})`);
               } else if (random < probabilities.best + probabilities.second) {
                 // Play second best move (simulate with random legal move for now)
@@ -153,7 +176,7 @@ export function useStockfish() {
                 const legalMoves = chess.moves();
                 if (legalMoves.length > 1) {
                   finalMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                  console.log(`🥈 Second-best selected: ${move} -> ${finalMove} (lvl: ${lvl})`);
+                  console.log(`🥈 Second-best selected: ${finalMove} -> ${finalMove} (lvl: ${lvl})`);
                 }
               } else if (random < probabilities.best + probabilities.second + probabilities.third) {
                 // Play third best move
@@ -161,7 +184,7 @@ export function useStockfish() {
                 const legalMoves = chess.moves();
                 if (legalMoves.length > 1) {
                   finalMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                  console.log(`🥉 Third-best selected: ${move} -> ${finalMove} (lvl: ${lvl})`);
+                  console.log(`🥉 Third-best selected: ${finalMove} -> ${finalMove} (lvl: ${lvl})`);
                 }
               } else {
                 // Play random move
@@ -169,7 +192,7 @@ export function useStockfish() {
                 const legalMoves = chess.moves();
                 if (legalMoves.length > 1) {
                   finalMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                  console.log(`🎲 Random move selected: ${move} -> ${finalMove} (lvl: ${lvl})`);
+                  console.log(`🎲 Random move selected: ${finalMove} -> ${finalMove} (lvl: ${lvl})`);
                 }
               }
             }

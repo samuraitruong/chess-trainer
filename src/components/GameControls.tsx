@@ -25,6 +25,7 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
 
 
 
+
   const handleShowMoveIndicatorsChange = (show: boolean) => {
     setShowMoveIndicators(show);
     onShowMoveIndicatorsChange?.(show);
@@ -113,6 +114,7 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
                   <span className="text-xs">🤔</span>
                 </div>
               )}
+              
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-gray-800 mb-1">
@@ -122,8 +124,9 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
                 Level {calculatedAiLevel}
               </p>
               <p className="text-xs text-gray-600 italic max-w-xs mx-auto">
-                "{currentSlogan}"
+                &ldquo;{currentSlogan}&rdquo;
               </p>
+              
             </div>
           </div>
         </div>

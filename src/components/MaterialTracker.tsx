@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { Chess, Move } from 'chess.js';
 import { useDatabase } from '@/contexts/DatabaseContext';
-import { getLevelProfile, LEVELS } from '@/utils/levelConfig';
+import { getLevelProfile } from '@/utils/levelConfig';
 import { FaChessPawn, FaChessKnight, FaChessBishop, FaChessRook, FaChessQueen } from 'react-icons/fa';
 
 type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
@@ -57,6 +57,7 @@ function CapturedIcons({ counts, align = 'left', pieceColor = 'white' }: {
 export default function MaterialTracker({ side, noBorder = false }: { side: 'white' | 'black'; noBorder?: boolean }) {
   const { gameState, stockfishConfig } = useDatabase();
   const [showConfig, setShowConfig] = useState(false);
+  const [showSloganPopup, setShowSloganPopup] = useState(false);
 
   const { whiteCaptured, blackCaptured, whiteMaterial, blackMaterial } = useMemo(() => {
     const chess = new Chess();
@@ -167,29 +168,64 @@ export default function MaterialTracker({ side, noBorder = false }: { side: 'whi
     }
   }, [stockfishConfig.elo]);
 
+  // Random slogan popup logic for AI side
+  React.useEffect(() => {
+    if (!isPlayerSide && gameState.isPlayerTurn && !gameState.isThinking && gameState.moves.length > 0) {
+      // 15% chance to show slogan popup
+      if (Math.random() < 0.15) {
+        setShowSloganPopup(true);
+        
+        // Hide after 3 seconds
+        const timer = setTimeout(() => {
+          setShowSloganPopup(false);
+        }, 3000);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isPlayerSide, gameState.isPlayerTurn, gameState.isThinking, gameState.moves.length]);
+
   return (
     <div className={`w-full px-3 py-2 ${noBorder ? '' : 'bg-white/70 border rounded-md'}`}>
       <div className={`flex ${isPlayerSide ? 'flex-row' : 'flex-row-reverse'} items-center justify-between`}>
-        <button
-          type="button"
-          className="text-sm font-semibold text-gray-800 hover:text-blue-700 flex items-center gap-2"
-          onClick={() => {
-            if (side === 'black') setShowConfig(true);
-          }}
-        >
-          {aiImage && (
-            <img 
-              src={aiImage} 
-              alt={aiLabel}
-              className="w-6 h-6 object-cover rounded-full border border-gray-300"
-              onError={(e) => {
-                // Hide image if it fails to load
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
+        <div className="relative">
+          <button
+            type="button"
+            className="text-sm font-semibold text-gray-800 hover:text-blue-700 flex items-center gap-2"
+            onClick={() => {
+              if (side === 'black') setShowConfig(true);
+            }}
+          >
+            {aiImage && (
+              <img 
+                src={aiImage} 
+                alt={aiLabel}
+                className="w-6 h-6 object-cover rounded-full border border-gray-300"
+                onError={(e) => {
+                  // Hide image if it fails to load
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            )}
+            {aiLabel}
+          </button>
+          
+          {/* Slogan Popup for AI side */}
+          {!isPlayerSide && showSloganPopup && (
+            <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-yellow-100 border-2 border-yellow-300 rounded-lg px-2 py-1 shadow-lg animate-bounce z-10 max-w-xs">
+              <div className="text-xs font-bold text-yellow-800 text-center whitespace-nowrap">
+                {(() => {
+                  const lvl = levelFromElo(stockfishConfig.elo);
+                  const profile = getLevelProfile(lvl);
+                  return profile.slogan;
+                })()}
+              </div>
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+                <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-l-transparent border-r-transparent border-t-yellow-300"></div>
+              </div>
+            </div>
           )}
-          {aiLabel}
-        </button>
+        </div>
         {showPlus && <span className="text-xs font-bold text-green-700">+{plusVal}</span>}
       </div>
       <div className={`mt-1 ${align === 'right' ? 'text-right' : ''}`}>

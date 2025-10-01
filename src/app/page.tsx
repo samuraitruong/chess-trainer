@@ -13,12 +13,10 @@ import MovePanel from '@/components/MovePanel';
 function CollapsibleGameControls({ 
   isCollapsed, 
   onToggle, 
-  showMoveIndicators, 
   onShowMoveIndicatorsChange 
 }: { 
   isCollapsed: boolean; 
   onToggle: () => void;
-  showMoveIndicators: boolean;
   onShowMoveIndicatorsChange: (show: boolean) => void;
 }) {
   const { resetGame, startNewGame } = useDatabase();
@@ -126,7 +124,6 @@ function PlayUI() {
             <CollapsibleGameControls 
               isCollapsed={isControlsCollapsed}
               onToggle={() => setIsControlsCollapsed(!isControlsCollapsed)}
-              showMoveIndicators={showMoveIndicators}
               onShowMoveIndicatorsChange={setShowMoveIndicators}
             />
 
