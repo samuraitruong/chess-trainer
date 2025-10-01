@@ -17,6 +17,10 @@
 /.next/
 /out/
 
+# PWA service worker files (generated at build time)
+/public/sw.js
+/public/workbox-*.js
+
 # production
 /build
 
