@@ -24,3 +24,46 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Enhanced Chess Board Drag & Drop Styling */
+.chess-board-square {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chess-board-square:hover {
+  transform: scale(1.02);
+}
+
+/* Better hover styling for chessboard squares */
+.chess-board .board-square:hover {
+  border: 2px solid rgba(59, 130, 246, 0.8) !important;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4) !important;
+  transition: all 0.15s ease-in-out !important;
+}
+
+/* Remove default black border on hover */
+.chess-board .board-square {
+  border: 1px solid transparent !important;
+}
+
+/* Enhanced piece hover effect */
+.chess-board .piece:hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: all 0.15s ease-out;
+}
+
+/* Drag preview styling */
+.chess-piece-drag-preview {
+  opacity: 0.8;
+  transform: scale(1.1);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  transition: all 0.15s ease-out;
+}
+
+/* Smooth animations for square highlights */
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.4); }
+}

@@ -42,7 +42,7 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
 
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+    <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Game Controls */}
         <div className="space-y-4">

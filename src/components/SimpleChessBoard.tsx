@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
-import { Chess } from 'chess.js';
+import { Chess, Square } from 'chess.js';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useStockfish } from '@/hooks/useStockfish';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
@@ -286,9 +286,12 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
             squareStyles: {
               ...(selectedSquare && showMoveIndicators && {
                 [selectedSquare]: {
-                  backgroundColor: 'rgba(255, 255, 0, 0.2)',
-                  borderRadius: '50%',
-                  boxShadow: 'inset 0 0 0 2px rgba(255, 255, 0, 0.5)',
+                  backgroundColor: 'rgba(59, 130, 246, 0.3)',
+                  borderRadius: '8px',
+                  boxShadow: 'inset 0 0 0 3px rgba(59, 130, 246, 0.8), 0 0 20px rgba(59, 130, 246, 0.4)',
+                  transform: 'scale(1.05)',
+                  transition: 'all 0.2s ease-in-out',
+                  animation: 'pulse-glow 1.5s ease-in-out infinite',
                 },
               }),
               ...(showMoveIndicators ? legalMoves.reduce((styles, square) => {
