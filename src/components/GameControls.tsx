@@ -95,7 +95,7 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
 
         {/* AI Avatar */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800">Your Opponent</h3>
+          <h3 className="text-lg font-semibold text-gray-800 text-center">Your Opponent</h3>
           <div className="flex flex-col items-center space-y-3">
             <div className="relative">
               <img 
@@ -113,11 +113,11 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
               )}
             </div>
             <div className="text-center">
-              <p className="text-sm font-semibold text-gray-800">
-                Level {calculatedAiLevel}
+              <p className="text-lg font-bold text-gray-800 mb-1">
+                {currentAnimal}
               </p>
-              <p className="text-xs text-gray-600">
-                {gameState.isPlayerTurn ? 'Your Turn' : 'AI Thinking...'}
+              <p className="text-sm font-semibold text-gray-700">
+                Level {calculatedAiLevel}
               </p>
             </div>
           </div>

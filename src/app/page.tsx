@@ -25,6 +25,16 @@ function CollapsibleGameControls({
 
   const handleNewGame = () => {
     startNewGame();
+    // Scroll to chess board after starting new game
+    setTimeout(() => {
+      const chessBoardElement = document.getElementById('chess-board');
+      if (chessBoardElement) {
+        chessBoardElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }
+    }, 100);
   };
 
   const handleReset = () => {
@@ -124,7 +134,7 @@ function PlayUI() {
             {/* Chess Board and Move Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Chess Board */}
-              <div className="lg:col-span-2">
+              <div id="chess-board" className="lg:col-span-2">
                   <SimpleChessBoard 
                     showMoveIndicators={showMoveIndicators}
                     onNewGame={startNewGame}
