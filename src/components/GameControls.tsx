@@ -19,7 +19,9 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
   const minElo = 50, maxElo = 2000;
   const fraction = Math.max(0, Math.min(1, (currentElo - minElo) / (maxElo - minElo)));
   const calculatedAiLevel = 1 + Math.floor(fraction * 19);
-  const currentAnimal = LEVELS[calculatedAiLevel - 1]?.animalName || 'Chick';
+  const currentLevelProfile = LEVELS[calculatedAiLevel - 1];
+  const currentAnimal = currentLevelProfile?.animalName || 'Chick';
+  const currentSlogan = currentLevelProfile?.slogan || 'Peep peep! I\'m just learning too! 🐣';
 
 
 
@@ -116,8 +118,11 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
               <p className="text-lg font-bold text-gray-800 mb-1">
                 {currentAnimal}
               </p>
-              <p className="text-sm font-semibold text-gray-700">
+              <p className="text-sm font-semibold text-gray-700 mb-2">
                 Level {calculatedAiLevel}
+              </p>
+              <p className="text-xs text-gray-600 italic max-w-xs mx-auto">
+                "{currentSlogan}"
               </p>
             </div>
           </div>
@@ -145,8 +150,8 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
       {showLevelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowLevelModal(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">Level Profiles</h3>
               <button
                 type="button"
@@ -157,17 +162,22 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
                 ✕
               </button>
             </div>
-            {(() => {
-              const elo = playerStats?.current_elo || 50;
-              const minElo = 50, maxElo = 2000;
-              const fraction = Math.max(0, Math.min(1, (elo - minElo) / (maxElo - minElo)));
-              const currentLevel = 1 + Math.floor(fraction * 19);
-              return (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 relative">
+              {/* Fade indicators */}
+              <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-white to-transparent pointer-events-none z-10"></div>
+              <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white to-transparent pointer-events-none z-10"></div>
+              {(() => {
+                const elo = playerStats?.current_elo || 50;
+                const minElo = 50, maxElo = 2000;
+                const fraction = Math.max(0, Math.min(1, (elo - minElo) / (maxElo - minElo)));
+                const currentLevel = 1 + Math.floor(fraction * 19);
+                return (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {LEVELS.map(lp => (
                     <div
                       key={lp.level}
-                      className={`p-2 rounded border text-xs font-semibold ${lp.level <= currentLevel ? 'opacity-100 border-green-200 bg-green-50 text-green-800' : 'opacity-50 border-gray-200 bg-gray-50 text-gray-600'}`}
+                      className={`p-2 rounded border text-xs font-semibold transition-all duration-300 ${lp.level <= currentLevel ? 'opacity-100 border-green-200 bg-green-50 text-green-800' : 'opacity-60 border-gray-300 bg-gray-100 text-gray-500 hover:opacity-80 hover:border-gray-400 cursor-pointer'}`}
+                      title={lp.level > currentLevel ? `Reach ${lp.description.split(' (~')[0]} to unlock this opponent!` : `Unlocked: ${lp.animalName}`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex flex-col">
@@ -180,31 +190,52 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
                           </div>
                         </div>
                         <div className="flex flex-col items-center gap-1">
-                          <img 
-                            src={`/ai/set1/${lp.animalName}.png`}
-                            alt={lp.animalName}
-                            className="w-16 h-16 object-cover rounded-full border-2 border-gray-300"
-                            onError={(e) => {
-                              // Hide image if it fails to load
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                          <span className="text-xs">{lp.animalName}</span>
+                          <div className="relative">
+                            <img 
+                              src={`/ai/set1/${lp.animalName}.png`}
+                              alt={lp.animalName}
+                              className={`w-16 h-16 object-cover rounded-full border-2 border-gray-300 ${lp.level > currentLevel ? 'blur-sm' : ''}`}
+                              onError={(e) => {
+                                // Hide image if it fails to load
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                            {lp.level > currentLevel && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-full">
+                                <span className="text-white text-xs font-bold">🔒</span>
+                              </div>
+                            )}
+                          </div>
+                          <span className={`text-xs ${lp.level > currentLevel ? 'blur-sm select-none' : ''}`}>
+                            {lp.level > currentLevel ? '???' : lp.animalName}
+                          </span>
                         </div>
                       </div>
                     </div>
                   ))}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-gray-600">
+                  {(() => {
+                    const elo = playerStats?.current_elo || 50;
+                    const minElo = 50, maxElo = 2000;
+                    const fraction = Math.max(0, Math.min(1, (elo - minElo) / (maxElo - minElo)));
+                    const currentLevel = 1 + Math.floor(fraction * 19);
+                    return `Progress: ${currentLevel}/20 levels unlocked`;
+                  })()}
                 </div>
-              );
-            })()}
-            <div className="mt-3 text-right">
-              <button
-                type="button"
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
-                onClick={() => setShowLevelModal(false)}
-              >
-                Close
-              </button>
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
+                  onClick={() => setShowLevelModal(false)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
