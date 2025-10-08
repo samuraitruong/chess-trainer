@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { IoClose, IoPlaySkipBack, IoPlayBack, IoPlayForward, IoPlaySkipForward } from 'react-icons/io5';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
@@ -85,6 +85,22 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [lastMoveArrow, setLastMoveArrow] = useState<[string, string] | null>(null);
   const [bestMoveArrow, setBestMoveArrow] = useState<[string, string] | null>(null);
+  const boardContainerRef = useRef<HTMLDivElement | null>(null);
+  const [boardWidth, setBoardWidth] = useState<number>(320);
+
+  // Resize observer for chessboard width (prevents overflow with left gutter)
+  useEffect(() => {
+    const measure = () => {
+      if (boardContainerRef.current) {
+        const width = boardContainerRef.current.clientWidth;
+        // Cap at desktop board width while fitting mobile width
+        setBoardWidth(Math.max(200, Math.min(width, 500)));
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [isOpen]);
 
   // Function to add debug logs
   const addDebugLog = (_message: string) => {};
@@ -398,14 +414,14 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
               </div>
             </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
         {/* Left Panel - Evaluation Bar, Chessboard and Analysis */}
-        <div className="w-2/3 p-4 flex flex-col overflow-y-auto">
+        <div className="w-full md:w-2/3 p-2 md:p-4 flex flex-col overflow-y-auto">
             {/* Top Section - Evaluation Bar and Chessboard */}
-            <div className="flex items-center justify-center space-x-4">
-              {/* Vertical Evaluation Bar - Rotated based on player color */}
-              <div className="flex flex-col items-center space-y-2">
-                <div className="w-6 h-[500px] bg-gray-200 overflow-hidden relative flex flex-col">
+            <div className="grid grid-cols-[24px_1fr] gap-2 w-full sm:flex sm:items-center sm:justify-center sm:gap-4">
+              {/* Vertical Evaluation Bar - fixed left gutter on mobile */}
+              <div className="w-6 h-full sm:h-[500px] sm:w-6 flex flex-col items-center">
+                <div className="w-6 h-full sm:h-[500px] bg-gray-200 overflow-hidden relative flex flex-col">
                   {(() => {
                     const playerColor = reviewGame.playerColor || 'white';
                     const isPlayerWhite = playerColor === 'white';
@@ -454,8 +470,8 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
                 </div>
               </div>
 
-              {/* Chessboard */}
-              <div className="w-[500px] h-[500px] relative">
+              {/* Chessboard - fills remaining width on mobile grid */}
+              <div ref={boardContainerRef} className="relative w-full sm:max-w-[500px]">
                 {(() => {
                   console.log('🎨 Rendering Chessboard with FEN:', currentFen, 'Move Index:', currentMoveIndex);
                   // Validate FEN format
@@ -468,6 +484,7 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
                   }
                   return null;
                 })()}
+                <div style={{ width: boardWidth, height: boardWidth }}>
                 <Chessboard
                   options={{
                     position: currentFen,
@@ -484,6 +501,7 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
                     ],
                   }}
                 />
+                </div>
                 {/* Best Move Icon Overlay */}
                 {bestMoveArrow && (
                   <div 
@@ -607,7 +625,7 @@ export default function GameReview({ isOpen, onClose, game }: GameReviewProps) {
           </div>
 
           {/* Right Panel - Move List */}
-          <div className="w-1/3 p-4 overflow-y-auto border-l border-gray-200">
+          <div className="w-full md:w-1/3 p-4 overflow-y-auto border-t md:border-t-0 md:border-l border-gray-200">
             <div className="space-y-4">
                 {/* Game Summary */}
                 <div className="bg-gray-50 rounded-lg p-4">

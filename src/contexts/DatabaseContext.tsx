@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { databaseService, GameRecord, PlayerStatsRecord } from '@/services/database';
 import { GameState, GameResult, StockfishConfig } from '@/types/chess';
 import { Chess } from 'chess.js';
+import { StockfishAnalysis } from '@/utils/stockfishAnalysis';
 
 interface DatabaseContextType {
   gameState: GameState;
@@ -13,6 +14,7 @@ interface DatabaseContextType {
   makeMove: (move: string) => boolean;
   resetGame: () => void;
   startNewGame: () => void;
+  startUnratedGame: (aiLevel: number) => void;
   updateStats: (result: GameResult) => void;
   setStockfishElo: (elo: number) => void;
   loadPlayerStats: () => Promise<void>;
@@ -20,6 +22,8 @@ interface DatabaseContextType {
   getGames: (limit?: number, offset?: number) => Promise<GameRecord[]>;
   exportData: () => Promise<{ games: GameRecord[]; playerStats: PlayerStatsRecord | null }>;
   importData: (data: { games: GameRecord[]; playerStats: PlayerStatsRecord | null }) => Promise<void>;
+  isComputingAccuracy: boolean;
+  moveAccuracies: number[];
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
@@ -47,6 +51,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [playerStats, setPlayerStats] = useState<PlayerStatsRecord | null>(null);
   const [stockfishConfig, setStockfishConfig] = useState<StockfishConfig>(initialStockfishConfig);
   const [isDatabaseReady, setIsDatabaseReady] = useState(false);
+  const [isComputingAccuracy, setIsComputingAccuracy] = useState(false);
+  const [moveAccuracies, setMoveAccuracies] = useState<number[]>([]);
+  const [analysisEngine, setAnalysisEngine] = useState<StockfishAnalysis | null>(null);
 
   // Initialize database on mount
   useEffect(() => {
@@ -173,6 +180,137 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Initialize analysis engine for real-time accuracy computation
+  useEffect(() => {
+    const initAnalysisEngine = async () => {
+      try {
+        const { StockfishAnalysis } = await import('@/utils/stockfishAnalysis');
+        const engine = new StockfishAnalysis();
+        await engine.init();
+        setAnalysisEngine(engine);
+        console.log('✅ Analysis engine initialized for real-time accuracy');
+        
+        // Test accuracy functions with known values
+        const { winPercentFromCentipawns, moveAccuracyFromWinDelta } = await import('@/utils/accuracy');
+        console.log('🧪 Testing accuracy functions:');
+        console.log('  - Win% for +100cp:', winPercentFromCentipawns(100));
+        console.log('  - Win% for -100cp:', winPercentFromCentipawns(-100));
+        console.log('  - Win% for 0cp:', winPercentFromCentipawns(0));
+        console.log('  - Accuracy for 50->60 win%:', moveAccuracyFromWinDelta(50, 60));
+        console.log('  - Accuracy for 50->40 win%:', moveAccuracyFromWinDelta(50, 40));
+        console.log('  - Accuracy for 50->50 win%:', moveAccuracyFromWinDelta(50, 50));
+      } catch (e) {
+        console.warn('⚠️ Failed to initialize analysis engine:', e);
+        console.log('🔄 Will use mock analysis as fallback');
+      }
+    };
+    
+    initAnalysisEngine();
+    
+    return () => {
+      if (analysisEngine) {
+        analysisEngine.terminate();
+      }
+    };
+  }, []);
+
+  // Analyze move accuracy in real-time using existing Stockfish hook
+  const analyzeMoveAccuracy = async (fenBefore: string, fenAfter: string, isPlayerMove: boolean) => {
+    if (!isPlayerMove) {
+      console.log('🔍 Analysis skipped: not a player move');
+      return;
+    }
+    
+    try {
+      setIsComputingAccuracy(true);
+      console.log('🔍 Starting move accuracy analysis...');
+      console.log('🔍 FEN Before:', fenBefore);
+      console.log('🔍 FEN After:', fenAfter);
+      console.log('🔍 Player Color:', gameState.playerColor);
+      
+      const { winPercentFromCentipawns, moveAccuracyFromWinDelta } = await import('@/utils/accuracy');
+      
+      // Try to use real Stockfish analysis, fallback to mock if it fails
+      let evalBefore = 0;
+      let evalAfter = 0;
+      
+      try {
+        if (analysisEngine) {
+          console.log('🔍 Using real Stockfish analysis...');
+          
+          // Analyze sequentially to avoid concurrent searches
+          const evalBeforeResult = await analysisEngine.analyzePosition(fenBefore, 15);
+          const evalAfterResult = await analysisEngine.analyzePosition(fenAfter, 15);
+          
+          evalBefore = evalBeforeResult;
+          evalAfter = evalAfterResult;
+          
+          console.log('🔍 Real Stockfish evaluations:', { evalBefore, evalAfter });
+        } else {
+          throw new Error('Analysis engine not available');
+        }
+        
+      } catch (stockfishError) {
+        console.warn('⚠️ Stockfish analysis failed, using mock:', stockfishError);
+        
+        // Fallback to mock analysis with more realistic values
+        const baseEval = Math.random() * 100 - 50; // -50 to +50 cp base
+        const moveImpact = (Math.random() - 0.5) * 200; // -100 to +100 cp move impact
+        
+        evalBefore = baseEval;
+        evalAfter = baseEval + moveImpact;
+        
+        console.log('🔍 Mock evaluations:', { evalBefore, evalAfter });
+      }
+      
+      console.log('🔍 Final evaluations:', { evalBefore, evalAfter });
+      
+      // Convert to player's perspective
+      const cpCap = 1000;
+      const cpBefore = Math.max(-cpCap, Math.min(cpCap, evalBefore));
+      const cpAfter = Math.max(-cpCap, Math.min(cpCap, evalAfter));
+      
+      console.log('🔍 Capped evaluations:', { cpBefore, cpAfter });
+      
+      const winBeforeWhite = winPercentFromCentipawns(cpBefore);
+      const winAfterWhite = winPercentFromCentipawns(cpAfter);
+      
+      console.log('🔍 White win percentages:', { winBeforeWhite, winAfterWhite });
+      
+      const winBeforePlayer = gameState.playerColor === 'white' ? winBeforeWhite : 100 - winBeforeWhite;
+      const winAfterPlayer = gameState.playerColor === 'white' ? winAfterWhite : 100 - winAfterWhite;
+      
+      console.log('🔍 Player win percentages:', { winBeforePlayer, winAfterPlayer });
+      
+      const winDelta = winBeforePlayer - winAfterPlayer;
+      console.log('🔍 Win delta:', winDelta);
+      
+      const moveAccuracy = moveAccuracyFromWinDelta(winBeforePlayer, winAfterPlayer);
+      
+      console.log('🔍 Move accuracy calculation:');
+      console.log('  - Win before:', winBeforePlayer.toFixed(2));
+      console.log('  - Win after:', winAfterPlayer.toFixed(2));
+      console.log('  - Win delta:', winDelta.toFixed(2));
+      console.log('  - Move accuracy:', moveAccuracy.toFixed(2) + '%');
+      
+      setMoveAccuracies(prev => {
+        const newAccuracies = [...prev, moveAccuracy];
+        const avgAccuracy = newAccuracies.reduce((sum, acc) => sum + acc, 0) / newAccuracies.length;
+        console.log(`📊 Move accuracies so far: [${newAccuracies.map(a => a.toFixed(1)).join(', ')}]`);
+        console.log(`📊 Average accuracy: ${avgAccuracy.toFixed(1)}%`);
+        return newAccuracies;
+      });
+      
+    } catch (e) {
+      console.error('⚠️ Failed to analyze move accuracy:', e);
+      if (e instanceof Error) {
+        console.error('⚠️ Error details:', e.message, e.stack);
+      }
+    } finally {
+      setIsComputingAccuracy(false);
+    }
+  };
+
   const makeMove = (move: string): boolean => {
     console.log('makeMove called with:', move);
     console.log('Database ready:', isDatabaseReady);
@@ -185,15 +323,24 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       
       if (result) {
         console.log('Move successful, updating game state');
+        const fenBefore = gameState.fen;
         const newFen = chess.fen();
         const newMoves = [...gameState.moves, move];
-        
+        const isPlayerMove = gameState.isPlayerTurn;
+        // Block AI response until analysis completes
+        if (isPlayerMove) {
+          setIsComputingAccuracy(true);
+        }
+
         setGameState(prev => ({
           ...prev,
           fen: newFen,
           moves: newMoves,
           isPlayerTurn: !prev.isPlayerTurn,
         }));
+
+        // Analyze move accuracy in real-time (non-blocking)
+        analyzeMoveAccuracy(fenBefore, newFen, isPlayerMove);
 
         // Check if game is over
         if (chess.isGameOver()) {
@@ -222,20 +369,29 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             playerResult = 'loss'; // AI won
           }
           
+          // Calculate final accuracy from real-time analysis
+          const finalAccuracy = moveAccuracies.length > 0 
+            ? Math.round((moveAccuracies.reduce((sum, acc) => sum + acc, 0) / moveAccuracies.length) * 10) / 10
+            : 85; // Fallback to default
+          
           const gameResultForStats: GameResult = {
             result: playerResult,
             moves: newMoves,
             pgn: chess.pgn(),
-            accuracy: 85, // Default accuracy, could be calculated
+            accuracy: finalAccuracy,
             blunders: 0,
             mistakes: 0,
             inaccuracies: 0,
             date: new Date().toISOString(),
+            isUnrated: gameState.isUnrated,
           };
           
           console.log('🎮 Game over, updating stats:', gameResultForStats);
-          console.log('🎮 Database ready for game save:', isDatabaseReady);
+          console.log('🎮 Final accuracy from real-time analysis:', finalAccuracy);
           updateStats(gameResultForStats);
+          
+          // Reset move accuracies for next game
+          setMoveAccuracies([]);
         }
         
         return true;
@@ -287,6 +443,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       playerColor,
       aiLevel,
       isPlayerTurn: playerColor === 'white', // White always starts
+      isUnrated: false, // Regular rated game
     };
     
     console.log('Setting new game state:', newGameState);
@@ -302,72 +459,104 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     }, 100);
   };
 
+  const startUnratedGame = (aiLevel: number) => {
+    console.log('=== startUnratedGame called ===');
+    console.log('aiLevel:', aiLevel);
+    
+    // Randomly assign player color
+    const playerColor: 'white' | 'black' = Math.random() < 0.5 ? 'white' : 'black';
+    console.log('playerColor:', playerColor);
+    
+    const currentElo = playerStats?.current_elo || 100;
+    
+    const newGameState = {
+      ...initialState,
+      currentElo,
+      playerColor,
+      aiLevel,
+      isPlayerTurn: playerColor === 'white', // White always starts
+      isUnrated: true, // Unrated game
+    };
+    
+    console.log('Setting unrated game state:', newGameState);
+    setGameState(newGameState);
+  };
+
   const updateStats = async (result: GameResult) => {
     if (!playerStats) return;
 
     console.log('updateStats called with:', result);
     console.log('Database ready for stats update:', isDatabaseReady);
+    console.log('Game is unrated:', result.isUnrated);
     
     const newStats = { ...playerStats };
-    newStats.total_games += 1;
     
-    if (result.result === 'win') {
-      newStats.wins += 1;
-      newStats.win_streak += 1;
-      newStats.loss_streak = 0;
-      newStats.consecutive_losses = 0;
+    // Only update stats for rated games
+    if (!result.isUnrated) {
+      newStats.total_games += 1;
       
-      // Progressive rating increase: 8, 16, 32, 64 (max)
-      let eloIncrease = 8;
-      if (newStats.win_streak >= 2) eloIncrease = 16;
-      if (newStats.win_streak >= 3) eloIncrease = 32;
-      if (newStats.win_streak >= 4) eloIncrease = 64;
-      
-      newStats.current_elo = Math.min(newStats.current_elo + eloIncrease, 2000);
-      
-    } else if (result.result === 'loss') {
-      newStats.losses += 1;
-      newStats.win_streak = 0;
-      newStats.loss_streak += 1;
-      newStats.consecutive_losses += 1;
-      
-      // Reduce ELO by 8 after every loss (minimum 50)
-      newStats.current_elo = Math.max(newStats.current_elo - 8, 50);
-      console.log(`📉 ELO reduced by 8 after loss. New ELO: ${newStats.current_elo}`);
-      
-      // If player failed 3 times in a row, reduce ELO by additional 8
-      if (newStats.consecutive_losses >= 3) {
+      if (result.result === 'win') {
+        newStats.wins += 1;
+        newStats.win_streak += 1;
+        newStats.loss_streak = 0;
+        newStats.consecutive_losses = 0;
+        
+        // Progressive rating increase: 8, 16, 32, 64 (max)
+        let eloIncrease = 8;
+        if (newStats.win_streak >= 2) eloIncrease = 16;
+        if (newStats.win_streak >= 3) eloIncrease = 32;
+        if (newStats.win_streak >= 4) eloIncrease = 64;
+        
+        newStats.current_elo = Math.min(newStats.current_elo + eloIncrease, 2000);
+        
+      } else if (result.result === 'loss') {
+        newStats.losses += 1;
+        newStats.win_streak = 0;
+        newStats.loss_streak += 1;
+        newStats.consecutive_losses += 1;
+        
+        // Reduce ELO by 8 after every loss (minimum 50)
         newStats.current_elo = Math.max(newStats.current_elo - 8, 50);
-        newStats.consecutive_losses = 0; // Reset after penalty
-        console.log(`📉 Additional ELO reduction for 3 consecutive losses. New ELO: ${newStats.current_elo}`);
+        console.log(`📉 ELO reduced by 8 after loss. New ELO: ${newStats.current_elo}`);
+        
+        // If player failed 3 times in a row, reduce ELO by additional 8
+        if (newStats.consecutive_losses >= 3) {
+          newStats.current_elo = Math.max(newStats.current_elo - 8, 50);
+          newStats.consecutive_losses = 0; // Reset after penalty
+          console.log(`📉 Additional ELO reduction for 3 consecutive losses. New ELO: ${newStats.current_elo}`);
+        }
+        
+      } else {
+        newStats.draws += 1;
+        newStats.win_streak = 0;
+        newStats.loss_streak = 0;
+        newStats.consecutive_losses = 0;
       }
       
+      newStats.win_rate = (newStats.wins / newStats.total_games) * 100;
+      
+      // Update average accuracy
+      const gameStats = await databaseService.getGameStats();
+      newStats.average_accuracy = gameStats.averageAccuracy;
+      
+      // Update best accuracy
+      newStats.best_accuracy = Math.max(newStats.best_accuracy, result.accuracy);
+      
+      // Update local state first
+      setPlayerStats(newStats);
+      console.log('Stats updated locally:', newStats);
     } else {
-      newStats.draws += 1;
-      newStats.win_streak = 0;
-      newStats.loss_streak = 0;
-      newStats.consecutive_losses = 0;
+      console.log('🎮 Unrated game - skipping ELO and stats updates');
     }
-    
-    newStats.win_rate = (newStats.wins / newStats.total_games) * 100;
-    
-    // Update average accuracy
-    const gameStats = await databaseService.getGameStats();
-    newStats.average_accuracy = gameStats.averageAccuracy;
-    
-    // Update best accuracy
-    newStats.best_accuracy = Math.max(newStats.best_accuracy, result.accuracy);
-    
-    // Update local state first
-    setPlayerStats(newStats);
-    console.log('Stats updated locally:', newStats);
     
     // Save to database if ready
     if (isDatabaseReady) {
       try {
-        await databaseService.updatePlayerStats(newStats);
+        if (!result.isUnrated) {
+          await databaseService.updatePlayerStats(newStats);
+        }
         
-        // Save game record
+        // Save game record (always save, but mark as unrated)
         const gameRecord: GameRecord = {
           result: result.result,
           moves: result.moves,
@@ -378,17 +567,20 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           inaccuracies: result.inaccuracies,
           date: result.date,
           elo_before: playerStats.current_elo,
-          elo_after: newStats.current_elo,
-          win_streak: newStats.win_streak,
-          loss_streak: newStats.loss_streak,
+          elo_after: result.isUnrated ? playerStats.current_elo : newStats.current_elo,
+          win_streak: result.isUnrated ? playerStats.win_streak : newStats.win_streak,
+          loss_streak: result.isUnrated ? playerStats.loss_streak : newStats.loss_streak,
           player_color: gameState.playerColor,
           ai_level: gameState.aiLevel,
+          isUnrated: result.isUnrated,
         };
         
         console.log('💾 Saving game record to database:', gameRecord);
         await databaseService.saveGame(gameRecord);
         console.log('✅ Game saved to database successfully');
-        console.log('✅ Stats saved to database:', newStats);
+        if (!result.isUnrated) {
+          console.log('✅ Stats saved to database:', newStats);
+        }
       } catch (error) {
         console.error('Failed to update stats in database:', error);
         console.log('Continuing with local state only');
@@ -450,9 +642,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     makeMove,
     resetGame,
     startNewGame,
+    startUnratedGame,
     updateStats,
     setStockfishElo,
     loadPlayerStats,
+    isComputingAccuracy,
+    moveAccuracies,
     saveGame,
     getGames,
     exportData,

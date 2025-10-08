@@ -10,7 +10,7 @@ interface GameControlsProps {
 }
 
 export default function GameControls({ onShowMoveIndicatorsChange }: GameControlsProps) {
-  const { gameState, playerStats, resetGame, startNewGame } = useDatabase();
+  const { gameState, playerStats, resetGame, startNewGame, startUnratedGame } = useDatabase();
   const [showMoveIndicators, setShowMoveIndicators] = React.useState(true);
   const [showLevelModal, setShowLevelModal] = React.useState(false);
 
@@ -37,6 +37,12 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
 
   const handleReset = () => {
     resetGame();
+  };
+
+  const handleReplayBot = (aiLevel: number) => {
+    console.log('Starting unrated game against bot level:', aiLevel);
+    startUnratedGame(aiLevel);
+    setShowLevelModal(false);
   };
 
 
@@ -91,7 +97,11 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
               <span>2000 (Master)</span>
             </div>
             <p className="text-xs text-gray-600">
-              ELO changes automatically based on your performance
+              {gameState.isUnrated ? (
+                <span className="text-orange-600 font-semibold">🎮 Unrated game - ELO won&apos;t change</span>
+              ) : (
+                'ELO changes automatically based on your performance'
+              )}
             </p>
           </div>
         </div>
@@ -114,7 +124,11 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
                   <span className="text-xs">🤔</span>
                 </div>
               )}
-              
+              {gameState.isUnrated && (
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                  <span className="text-xs text-white">🎮</span>
+                </div>
+              )}
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-gray-800 mb-1">
@@ -122,6 +136,11 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
               </p>
               <p className="text-sm font-semibold text-gray-700 mb-2">
                 Level {calculatedAiLevel}
+                {gameState.isUnrated && (
+                  <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full">
+                    Unrated
+                  </span>
+                )}
               </p>
               <p className="text-xs text-gray-600 italic max-w-xs mx-auto">
                 &ldquo;{currentSlogan}&rdquo;
@@ -212,6 +231,18 @@ export default function GameControls({ onShowMoveIndicatorsChange }: GameControl
                           <span className={`text-xs ${lp.level > currentLevel ? 'blur-sm select-none' : ''}`}>
                             {lp.level > currentLevel ? '???' : lp.animalName}
                           </span>
+                          {lp.level <= currentLevel && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReplayBot(lp.level);
+                              }}
+                              className="mt-1 px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-[10px] rounded transition-colors"
+                              title="Play again (unrated)"
+                            >
+                              Replay
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

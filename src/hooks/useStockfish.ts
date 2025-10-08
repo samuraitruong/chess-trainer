@@ -109,20 +109,15 @@ export function useStockfish() {
       console.log(`⏱️ Time limit set to: ${timeLimit}ms (Level: ${lvl})`);
       console.log(`🔍 Depth limit set to: ${depthLimit} (Level: ${lvl})`);
       
-      // Add realistic thinking delay to simulate human behavior
-      const thinkingDelay = config.elo < 1320 ? Math.random() * 1000 + 500 : 200; // 500-1500ms for low ELOs
-      console.log(`🧠 Thinking delay: ${thinkingDelay.toFixed(0)}ms (simulating human behavior)`);
-      
-      setTimeout(() => {
-        console.log(`⏰ Starting search after thinking delay...`);
-        if (profile.play.kind === 'mistake') {
-          stockfishRef.current?.postMessage(`go depth ${depthLimit} movetime ${timeLimit}`);
-          console.log(`🔍 Search command: go depth ${depthLimit} movetime ${timeLimit}`);
-        } else {
-          stockfishRef.current?.postMessage(`go movetime ${timeLimit}`);
-          console.log(`🔍 Search command: go movetime ${timeLimit}`);
-        }
-      }, thinkingDelay);
+      // Start search immediately (we now gate on analysis completion externally)
+      console.log(`⏰ Starting search immediately...`);
+      if (profile.play.kind === 'mistake') {
+        stockfishRef.current?.postMessage(`go depth ${depthLimit} movetime ${timeLimit}`);
+        console.log(`🔍 Search command: go depth ${depthLimit} movetime ${timeLimit}`);
+      } else {
+        stockfishRef.current?.postMessage(`go movetime ${timeLimit}`);
+        console.log(`🔍 Search command: go movetime ${timeLimit}`);
+      }
 
       // Listen for the best move
       const handleMessage = (event: MessageEvent) => {

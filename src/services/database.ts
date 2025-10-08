@@ -16,6 +16,7 @@ export interface GameRecord {
   loss_streak: number;
   player_color: 'white' | 'black';
   ai_level: number;
+  isUnrated?: boolean;
 }
 
 export interface PlayerStatsRecord {

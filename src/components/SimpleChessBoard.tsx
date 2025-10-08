@@ -15,7 +15,7 @@ interface SimpleChessBoardProps {
 }
 
 export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame, onReviewGame }: SimpleChessBoardProps) {
-  const { gameState, makeMove, stockfishConfig, playerStats } = useDatabase();
+  const { gameState, makeMove, stockfishConfig, playerStats, isComputingAccuracy, moveAccuracies } = useDatabase();
   const [chess] = useState(() => new Chess());
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [legalMoves, setLegalMoves] = useState<string[]>([]);
@@ -76,7 +76,7 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
   // Handle AI moves when it's the AI's turn
   // AI move logic using Stockfish
   useEffect(() => {
-    if (!gameState.isPlayerTurn && !gameState.isGameOver && stockfishReady) {
+    if (!gameState.isPlayerTurn && !gameState.isGameOver && stockfishReady && !isComputingAccuracy) {
       console.log('AI turn detected, using Stockfish with ELO:', stockfishConfig.elo);
       
       // Small delay to prevent layout flash
@@ -88,13 +88,15 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
           console.error('Stockfish error:', error);
           // If Stockfish fails, the game will be stuck - this is intentional for testing
         });
-      }, 100);
+      }, 0);
 
       return () => clearTimeout(timeoutId);
     } else if (!gameState.isPlayerTurn && !gameState.isGameOver && !stockfishReady) {
       console.log('Waiting for Stockfish to be ready...');
+    } else if (!gameState.isPlayerTurn && isComputingAccuracy) {
+      console.log('Deferring AI move until analysis completes...');
     }
-  }, [gameState.isPlayerTurn, gameState.isGameOver, stockfishReady, stockfishConfig, getAIMove, makeMove]);
+  }, [gameState.isPlayerTurn, gameState.isGameOver, stockfishReady, isComputingAccuracy, stockfishConfig, getAIMove, makeMove]);
 
   const onDrop = useCallback(({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }) => {
     console.log('onDrop called:', sourceSquare, 'to', targetSquare);
@@ -120,22 +122,26 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
         // White castling
         move = tempChess.move({
           from: sourceSquare,
-          to: targetSquare,
-          promotion: 'q'
+          to: targetSquare
         });
       } else if (sourceSquare === 'e8' && (targetSquare === 'g8' || targetSquare === 'c8')) {
         // Black castling
         move = tempChess.move({
           from: sourceSquare,
-          to: targetSquare,
-          promotion: 'q'
+          to: targetSquare
         });
       } else {
-        // Regular move
-        move = tempChess.move({
+        // Regular move with conditional promotion only when applicable
+        const piece = tempChess.get(sourceSquare as Square);
+        const targetRank = targetSquare[1];
+        const needsPromotion = piece && piece.type === 'p' && (targetRank === '8' || targetRank === '1');
+        move = tempChess.move(needsPromotion ? {
           from: sourceSquare,
           to: targetSquare,
-          promotion: 'q', // Always promote to queen
+          promotion: 'q',
+        } : {
+          from: sourceSquare,
+          to: targetSquare,
         });
       }
 
@@ -216,22 +222,26 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
           // White castling
           move = tempChess.move({
             from: selectedSquare,
-            to: square,
-            promotion: 'q'
+            to: square
           });
         } else if (selectedSquare === 'e8' && (square === 'g8' || square === 'c8')) {
           // Black castling
           move = tempChess.move({
             from: selectedSquare,
-            to: square,
-            promotion: 'q'
+            to: square
           });
         } else {
-          // Regular move
-          move = tempChess.move({
+          // Regular move with conditional promotion only when applicable
+          const piece = tempChess.get(selectedSquare as Square);
+          const targetRank = square[1];
+          const needsPromotion = piece && piece.type === 'p' && (targetRank === '8' || targetRank === '1');
+          move = tempChess.move(needsPromotion ? {
             from: selectedSquare,
             to: square,
             promotion: 'q'
+          } : {
+            from: selectedSquare,
+            to: square
           });
         }
         
@@ -314,7 +324,7 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
         
         {/* Game Over Modal - Kid Friendly Design */}
         {gameState.isGameOver && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
             <div 
               className="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-blue-900/80 to-indigo-900/80 backdrop-blur-sm"
               onClick={(e) => {
@@ -327,12 +337,12 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
               }}
             />
             <div 
-              className="relative bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 rounded-3xl shadow-2xl w-full max-w-lg border-4 border-yellow-300 overflow-hidden"
+              className="relative bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg mx-4 sm:mx-6 border-2 sm:border-4 border-yellow-300 overflow-hidden max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               
               {/* Header with Fun Animation */}
-              <div className="text-center pt-6 pb-4 relative">
+              <div className="text-center pt-5 sm:pt-6 pb-4 relative">
                 {/* Close Button - positioned in top-right of header */}
                 <button
                   onClick={onNewGame}
@@ -343,17 +353,27 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-                <div className="text-3xl mb-2 animate-bounce mt-4">
+                
+                {/* Real-time Accuracy Indicator */}
+                {moveAccuracies.length > 0 && (
+                  <div className="absolute top-2 left-2 flex items-center space-x-2 text-gray-600 text-sm bg-white/80 rounded-full px-3 py-1 shadow-lg">
+                    <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                    <span>Accuracy: {moveAccuracies.length > 0 ? Math.round((moveAccuracies.reduce((sum, acc) => sum + acc, 0) / moveAccuracies.length) * 10) / 10 : 0}%</span>
+                  </div>
+                )}
+                <div className="text-2xl sm:text-3xl mb-2 animate-bounce mt-2 sm:mt-4">
                   {gameState.result === gameState.playerColor && '🏆'}
                   {gameState.result !== 'draw' && gameState.result !== gameState.playerColor && '😢'}
                   {gameState.result === 'draw' && '🤝'}
                 </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
                   {gameState.result === 'draw' && "It's a Draw!"}
                   {gameState.result === gameState.playerColor && 'Amazing Win!'}
                   {gameState.result !== 'draw' && gameState.result !== gameState.playerColor && 'Good Try!'}
                 </h2>
-                <p className="text-lg text-gray-600">
+                <p className="text-base sm:text-lg text-gray-600 px-4 sm:px-0">
                   {gameState.result === 'draw' && "You both played great! 🤝"}
                   {gameState.result === gameState.playerColor && 'You are getting stronger! 💪'}
                   {gameState.result !== 'draw' && gameState.result !== gameState.playerColor && 'Keep practicing! 🌟'}
@@ -363,7 +383,7 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
               {/* Stats Card */}
               {gameResult && (
                 <div className="mx-6 mb-6">
-                  <div className={`rounded-2xl p-4 border-2 ${
+                <div className={`rounded-2xl p-3 sm:p-4 border-2 ${
                     gameState.result === gameState.playerColor
                       ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-green-300'
                       : gameState.result !== 'draw'
@@ -374,26 +394,26 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
                     {gameState.result === gameState.playerColor && (
                       <div className="text-center">
                         <div className="flex items-center justify-center mb-3">
-                          <span className="text-2xl mr-2">⭐</span>
-                          <span className="text-xl font-bold text-green-700">
+                          <span className="text-xl sm:text-2xl mr-2">⭐</span>
+                          <span className="text-lg sm:text-xl font-bold text-green-700">
                             +{gameResult.eloChange} Points!
                           </span>
-                          <span className="text-2xl ml-2">⭐</span>
+                          <span className="text-xl sm:text-2xl ml-2">⭐</span>
                         </div>
-                        <div className="bg-white/70 rounded-xl p-3 mb-3">
-                          <p className="text-lg font-bold text-green-800">
+                        <div className="bg-white/70 rounded-xl p-2 sm:p-3 mb-3">
+                          <p className="text-base sm:text-lg font-bold text-green-800">
                             New Level: {playerStats?.current_elo || 0}
                           </p>
                         </div>
                         <div className="flex items-center justify-center space-x-2">
-                          <span className="text-lg">🔥</span>
-                          <span className="text-green-700 font-semibold">
+                          <span className="text-base sm:text-lg">🔥</span>
+                          <span className="text-green-700 font-semibold text-sm sm:text-base">
                             {gameResult.winStreak} Win{gameResult.winStreak !== 1 ? 's' : ''} in a Row!
                           </span>
-                          <span className="text-lg">🔥</span>
+                          <span className="text-base sm:text-lg">🔥</span>
                         </div>
                         {gameResult.winStreak >= 2 && (
-                          <div className="mt-2 text-sm font-bold text-green-600">
+                          <div className="mt-2 text-xs sm:text-sm font-bold text-green-600">
                             {gameResult.winStreak >= 4 && '🌟 SUPER STREAK! 🌟'}
                             {gameResult.winStreak === 3 && '⚡ 3 STREAK BONUS! ⚡'}
                             {gameResult.winStreak === 2 && '✨ 2 STREAK BONUS! ✨'}
@@ -405,23 +425,23 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
                     {gameState.result !== 'draw' && gameState.result !== gameState.playerColor && (
                       <div className="text-center">
                         <div className="flex items-center justify-center mb-3">
-                          <span className="text-2xl mr-2">💪</span>
-                          <span className="text-xl font-bold text-blue-700">
+                          <span className="text-xl sm:text-2xl mr-2">💪</span>
+                          <span className="text-lg sm:text-xl font-bold text-blue-700">
                             {gameResult.eloChange > 0 ? '+' : ''}{gameResult.eloChange} Points
                           </span>
-                          <span className="text-2xl ml-2">💪</span>
+                          <span className="text-xl sm:text-2xl ml-2">💪</span>
                         </div>
-                        <div className="bg-white/70 rounded-xl p-3 mb-3">
-                          <p className="text-lg font-bold text-blue-800">
+                        <div className="bg-white/70 rounded-xl p-2 sm:p-3 mb-3">
+                          <p className="text-base sm:text-lg font-bold text-blue-800">
                             Current Level: {playerStats?.current_elo || 0}
                           </p>
                         </div>
                         <div className="flex items-center justify-center space-x-2">
-                          <span className="text-lg">🎯</span>
-                          <span className="text-blue-700 font-semibold">
+                          <span className="text-base sm:text-lg">🎯</span>
+                          <span className="text-blue-700 font-semibold text-sm sm:text-base">
                             Ready for a comeback!
                           </span>
-                          <span className="text-lg">🎯</span>
+                          <span className="text-base sm:text-lg">🎯</span>
                         </div>
                       </div>
                     )}
@@ -429,23 +449,23 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
                     {gameState.result === 'draw' && (
                       <div className="text-center">
                         <div className="flex items-center justify-center mb-3">
-                          <span className="text-2xl mr-2">🤝</span>
-                          <span className="text-xl font-bold text-yellow-700">
+                          <span className="text-xl sm:text-2xl mr-2">🤝</span>
+                          <span className="text-lg sm:text-xl font-bold text-yellow-700">
                             No Change
                           </span>
-                          <span className="text-2xl ml-2">🤝</span>
+                          <span className="text-xl sm:text-2xl ml-2">🤝</span>
                         </div>
-                        <div className="bg-white/70 rounded-xl p-3 mb-3">
-                          <p className="text-lg font-bold text-yellow-800">
+                        <div className="bg-white/70 rounded-xl p-2 sm:p-3 mb-3">
+                          <p className="text-base sm:text-lg font-bold text-yellow-800">
                             Current Level: {playerStats?.current_elo || 0}
                           </p>
                         </div>
                         <div className="flex items-center justify-center space-x-2">
-                          <span className="text-lg">🎨</span>
-                          <span className="text-yellow-700 font-semibold">
+                          <span className="text-base sm:text-lg">🎨</span>
+                          <span className="text-yellow-700 font-semibold text-sm sm:text-base">
                             Great game! Keep playing!
                           </span>
-                          <span className="text-lg">🎨</span>
+                          <span className="text-base sm:text-lg">🎨</span>
                         </div>
                       </div>
                     )}
@@ -454,8 +474,8 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
               )}
               
               {/* Action Buttons */}
-              <div className="px-6 pb-6">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="px-5 sm:px-6 pb-5 sm:pb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <button
                     onClick={() => {
                       console.log('New Game button clicked');
@@ -463,22 +483,22 @@ export default function SimpleChessBoard({ showMoveIndicators = true, onNewGame,
                         onNewGame();
                       }
                     }}
-                    className="group bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl transform active:scale-95"
+                    className="group bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-4 sm:py-4 sm:px-6 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl transform active:scale-95"
                   >
                     <div className="flex items-center justify-center space-x-2">
-                      <span className="text-xl">♟️</span>
-                      <span>New Game</span>
-                      <span className="text-xl">♟️</span>
+                      <span className="text-lg sm:text-xl">♟️</span>
+                      <span className="text-sm sm:text-base">New Game</span>
+                      <span className="text-lg sm:text-xl">♟️</span>
                     </div>
                   </button>
                   <button
                     onClick={onReviewGame}
-                    className="group bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl transform active:scale-95"
+                    className="group bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-bold py-3 px-4 sm:py-4 sm:px-6 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl transform active:scale-95"
                   >
                     <div className="flex items-center justify-center space-x-2">
-                      <span className="text-xl">🔍</span>
-                      <span>Review</span>
-                      <span className="text-xl">🔍</span>
+                      <span className="text-lg sm:text-xl">🔍</span>
+                      <span className="text-sm sm:text-base">Review</span>
+                      <span className="text-lg sm:text-xl">🔍</span>
                     </div>
                   </button>
                 </div>

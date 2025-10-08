@@ -7,6 +7,7 @@ export interface GameResult {
   mistakes: number;
   inaccuracies: number;
   date: string;
+  isUnrated?: boolean;
 }
 
 export interface PlayerStats {
@@ -34,6 +35,7 @@ export interface GameState {
   currentElo: number;
   playerColor: 'white' | 'black';
   aiLevel: number;
+  isUnrated?: boolean;
 }
 
 export interface MoveAnalysis {
