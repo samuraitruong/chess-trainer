@@ -4,13 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { GameRecord } from '@/services/database';
 import GameReview from './GameReview';
+import { useStockfish } from '@/hooks/useStockfish';
 
 export default function Dashboard() {
   const { playerStats, getGames } = useDatabase();
+  const { isReady, isMobileMode } = useStockfish();
   const [games, setGames] = useState<GameRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReview, setShowReview] = useState(false);
   const [selectedGame, setSelectedGame] = useState<GameRecord | null>(null);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
 
   useEffect(() => {
     const loadGames = async () => {
@@ -196,7 +199,66 @@ export default function Dashboard() {
         </div>
       )}
 
-      
+      {/* Debug Information */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">System Information</h3>
+          <button
+            onClick={() => setShowDebugInfo(!showDebugInfo)}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            {showDebugInfo ? 'Hide' : 'Show'} Debug Info
+          </button>
+        </div>
+        
+        {showDebugInfo && (
+          <div className="bg-gray-50 rounded-lg p-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Stockfish Status</h4>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span>Engine Ready:</span>
+                    <span className={isReady ? 'text-green-600' : 'text-red-600'}>
+                      {isReady ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Mobile Mode:</span>
+                    <span className={isMobileMode ? 'text-orange-600' : 'text-blue-600'}>
+                      {isMobileMode ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Browser Support</h4>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span>SharedArrayBuffer:</span>
+                    <span className={typeof SharedArrayBuffer !== 'undefined' ? 'text-green-600' : 'text-red-600'}>
+                      {typeof SharedArrayBuffer !== 'undefined' ? 'Supported' : 'Not Supported'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Atomics:</span>
+                    <span className={typeof Atomics !== 'undefined' ? 'text-green-600' : 'text-red-600'}>
+                      {typeof Atomics !== 'undefined' ? 'Supported' : 'Not Supported'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>User Agent:</span>
+                    <span className="text-gray-600 text-xs">
+                      {navigator.userAgent.substring(0, 50)}...
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Recent Games */}
       <div className="mt-8">

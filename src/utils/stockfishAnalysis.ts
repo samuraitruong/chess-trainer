@@ -2,16 +2,46 @@
 
 // Removed unused Chess import
 
+// Feature detection for WebAssembly threading support
+function supportsWasmThreads(): boolean {
+  try {
+    return typeof SharedArrayBuffer === 'function' && 
+           typeof Atomics === 'object' && 
+           typeof Atomics.wait === 'function';
+  } catch (e) {
+    return false;
+  }
+}
+
+// Detect if running on mobile device
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 // Simple Stockfish analysis without threading issues
 export class StockfishAnalysis {
   private worker: Worker | null = null;
   private isReady = false;
+  private isMobileMode = false;
 
   async init(): Promise<void> {
     if (this.worker) return;
     
     try {
-      console.log('🔧 Initializing Stockfish analysis engine...');
+      // Detect mobile mode and threading support
+      const hasThreadingSupport = supportsWasmThreads();
+      const isMobile = isMobileDevice();
+      this.isMobileMode = isMobile || !hasThreadingSupport;
+      
+      console.log('🔧 Initializing Stockfish analysis engine...', {
+        hasThreadingSupport,
+        isMobile,
+        isMobileMode: this.isMobileMode,
+        userAgent: navigator.userAgent,
+        sharedArrayBuffer: typeof SharedArrayBuffer,
+        atomics: typeof Atomics
+      });
+      
       this.worker = new Worker('/stockfish.js');
       
       await new Promise<void>((resolve, reject) => {
@@ -29,6 +59,12 @@ export class StockfishAnalysis {
           console.log('🔧 Stockfish message:', message);
           
           if (message.includes('uciok')) {
+            // Configure for mobile if needed
+            if (this.isMobileMode) {
+              console.log('📱 Configuring Stockfish analysis for mobile mode');
+              this.worker?.postMessage('setoption name Threads value 1');
+              this.worker?.postMessage('setoption name Hash value 8');
+            }
             clearTimeout(timeout);
             this.isReady = true;
             console.log('✅ Stockfish analysis engine ready');
@@ -104,11 +140,22 @@ export class StockfishAnalysis {
       
       this.worker!.addEventListener('message', handleMessage as EventListener);
       
-      // Configure for analysis
+      // Configure for analysis with mobile optimization
       this.worker!.postMessage('setoption name UCI_LimitStrength value false');
       this.worker!.postMessage('setoption name MultiPV value 1');
-      this.worker!.postMessage('setoption name Threads value 1'); // Single thread to avoid issues
-      this.worker!.postMessage('setoption name Hash value 16'); // Small hash to avoid memory issues
+      
+      // Mobile-specific optimizations
+      if (this.isMobileMode) {
+        this.worker!.postMessage('setoption name Threads value 1');
+        this.worker!.postMessage('setoption name Hash value 8');
+        // Reduce depth for mobile to prevent timeouts
+        depth = Math.min(depth, 12);
+        console.log('📱 Mobile mode: reduced analysis depth to', depth);
+      } else {
+        this.worker!.postMessage('setoption name Threads value 1'); // Single thread to avoid issues
+        this.worker!.postMessage('setoption name Hash value 16'); // Small hash to avoid memory issues
+      }
+      
       this.worker!.postMessage(`position fen ${fen}`);
       this.worker!.postMessage(`go depth ${depth}`);
       

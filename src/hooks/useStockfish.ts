@@ -5,15 +5,48 @@ import { StockfishConfig } from '@/types/chess';
 import { getLevelProfile } from '@/utils/levelConfig';
 import { Chess } from 'chess.js';
 
+// Feature detection for WebAssembly threading support
+function supportsWasmThreads(): boolean {
+  try {
+    return typeof SharedArrayBuffer === 'function' && 
+           typeof Atomics === 'object' && 
+           typeof Atomics.wait === 'function';
+  } catch (e) {
+    return false;
+  }
+}
+
+// Detect if running on mobile device
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 export function useStockfish() {
   const [isReady, setIsReady] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [isMobileMode, setIsMobileMode] = useState(false);
   const stockfishRef = useRef<Worker | null>(null);
 
   useEffect(() => {
-    // Initialize real Stockfish engine
+    // Initialize real Stockfish engine with mobile compatibility
     const initStockfish = () => {
       try {
+        // Detect mobile mode and threading support
+        const hasThreadingSupport = supportsWasmThreads();
+        const isMobile = isMobileDevice();
+        const useMobileMode = isMobile || !hasThreadingSupport;
+        
+        setIsMobileMode(useMobileMode);
+        
+        console.log(`🔧 Stockfish initialization:`, {
+          hasThreadingSupport,
+          isMobile,
+          useMobileMode,
+          userAgent: navigator.userAgent,
+          sharedArrayBuffer: typeof SharedArrayBuffer,
+          atomics: typeof Atomics
+        });
+
         // Create a real Stockfish worker
         stockfishRef.current = new Worker('/stockfish.js');
         
@@ -22,6 +55,13 @@ export function useStockfish() {
           console.log('📨 Stockfish message:', message);
           
           if (message.includes('uciok')) {
+            // Configure for mobile if needed
+            if (useMobileMode) {
+              console.log('📱 Configuring Stockfish for mobile mode');
+              stockfishRef.current?.postMessage('setoption name Threads value 1');
+              stockfishRef.current?.postMessage('setoption name Hash value 8');
+              stockfishRef.current?.postMessage('setoption name UCI_LimitStrength value false');
+            }
             setIsReady(true);
             console.log('✅ Stockfish ready');
           } else if (message.includes('bestmove')) {
@@ -84,14 +124,27 @@ export function useStockfish() {
       const profile = getLevelProfile(lvl);
       console.log(`🎯 Using level profile`, profile);
 
-      // Configure according to level profile
+      // Configure according to level profile with mobile optimization
       let timeLimit = 500;
       let depthLimit = 15;
+      
+      // Mobile-specific optimizations
+      if (isMobileMode) {
+        console.log('📱 Using mobile-optimized settings');
+        stockfishRef.current.postMessage(`setoption name Threads value 1`);
+        stockfishRef.current.postMessage(`setoption name Hash value 8`);
+        // Reduce time limits for mobile
+        timeLimit = Math.min(timeLimit, 2000);
+        depthLimit = Math.min(depthLimit, 12);
+      }
+      
       if (profile.play.kind === 'mistake') {
         stockfishRef.current.postMessage(`setoption name UCI_LimitStrength value false`);
         stockfishRef.current.postMessage(`setoption name MultiPV value ${profile.play.multipv}`);
-        stockfishRef.current.postMessage(`setoption name Threads value 1`);
-        stockfishRef.current.postMessage(`setoption name Hash value 1`);
+        if (!isMobileMode) {
+          stockfishRef.current.postMessage(`setoption name Threads value 1`);
+          stockfishRef.current.postMessage(`setoption name Hash value 1`);
+        }
         // Random time in band
         const jitter = profile.play.timeMinMs + Math.random() * (profile.play.timeMaxMs - profile.play.timeMinMs);
         timeLimit = Math.floor(jitter);
@@ -236,9 +289,15 @@ export function useStockfish() {
         // Set up the position
         stockfishRef.current!.postMessage(`position fen ${fen}`);
         
-        // Configure for analysis (max strength)
+        // Configure for analysis (max strength) with mobile optimization
         stockfishRef.current!.postMessage(`setoption name UCI_LimitStrength value false`);
         stockfishRef.current!.postMessage(`setoption name MultiPV value 1`);
+        
+        // Mobile-specific optimizations for analysis
+        if (isMobileMode) {
+          stockfishRef.current!.postMessage(`setoption name Threads value 1`);
+          stockfishRef.current!.postMessage(`setoption name Hash value 8`);
+        }
         
         // Listen for the best move and evaluation
         const handleMessage = (event: MessageEvent) => {
@@ -319,9 +378,19 @@ export function useStockfish() {
         return;
       }
       
-      // Set MultiPV to 4 to get 4 best moves
+      // Set MultiPV to 4 to get 4 best moves with mobile optimization
       console.log('📊 Setting MultiPV to 4...');
       stockfishRef.current.postMessage('setoption name MultiPV value 4');
+      
+      // Mobile-specific optimizations for analysis
+      if (isMobileMode) {
+        stockfishRef.current.postMessage('setoption name Threads value 1');
+        stockfishRef.current.postMessage('setoption name Hash value 8');
+        // Reduce depth for mobile to prevent timeouts
+        depth = Math.min(depth, 12);
+        console.log('📱 Mobile mode: reduced depth to', depth);
+      }
+      
       stockfishRef.current.postMessage(`position fen ${fen}`);
       stockfishRef.current.postMessage(`go depth ${depth}`);
 
@@ -510,6 +579,7 @@ export function useStockfish() {
   return {
     isReady,
     isThinking,
+    isMobileMode,
     getAIMove,
     getBestMove,
     analyzePosition,
